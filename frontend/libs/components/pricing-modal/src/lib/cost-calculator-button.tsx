@@ -12,10 +12,14 @@ export function CostCalculatorButton({
   className,
   modelPage,
 }: CostCalculatorButtonProps) {
-  const { openModal, estimatedCreditsByPage } = useCostBreakdownModalStore();
+  const { openModal, estimatedCreditsByPage, estimatedUsdCentsByPage } =
+    useCostBreakdownModalStore();
 
   const credits =
     modelPage != null ? estimatedCreditsByPage[modelPage] : undefined;
+  // BYOK providers (Venice) report a real USD estimate instead of credits.
+  const usdCents =
+    modelPage != null ? estimatedUsdCentsByPage[modelPage] : undefined;
 
   return (
     <Button
@@ -26,12 +30,16 @@ export function CostCalculatorButton({
     >
       <CalculatorIcon  className="text-base-fg" />
       <span>Costs</span>
-      {credits != null && (
+      {usdCents != null ? (
+        <span className="text-xs font-semibold">
+          ${(usdCents / 100).toFixed(2)}
+        </span>
+      ) : credits != null ? (
         <span className="text-xs font-semibold flex items-center gap-1">
           <CoinsIcon  className="text-base-fg" />
           {credits}
         </span>
-      )}
+      ) : null}
     </Button>
   );
 }
