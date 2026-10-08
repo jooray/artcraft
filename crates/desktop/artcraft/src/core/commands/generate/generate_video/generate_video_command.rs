@@ -11,11 +11,14 @@ use crate::core::commands::generate::generate_video::request::{
   TauriVideoModel,
 };
 use crate::core::commands::generate::generate_video::sora2::handle_sora_sora2::handle_sora_sora2;
+use crate::core::commands::generate::generate_video::venice::handle_venice_video::handle_venice_video_enqueue;
 use crate::core::commands::response::failure_response_wrapper::{CommandErrorResponseWrapper, CommandErrorStatus};
 use crate::core::commands::response::shorthand::Response;
 use crate::core::events::basic_sendable_event_trait::BasicSendableEvent;
 use crate::core::events::functional_events::credits_balance_changed_event::CreditsBalanceChangedEvent;
+use crate::core::events::functional_events::show_provider_login_modal_event::ShowProviderLoginModalEvent;
 use crate::core::events::generation_events::generation_enqueue_success_event::GenerationEnqueueSuccessEvent;
+use crate::core::providers::credentials::provider_credential_loading_cache::ProviderCredentialLoadingCache;
 use crate::core::state::app_env_configs::app_env_configs::AppEnvConfigs;
 use crate::core::state::artcraft_usage_tracker::artcraft_usage_tracker::ArtcraftUsageTracker;
 use crate::core::state::artcraft_usage_tracker::artcraft_usage_type::{ArtcraftUsagePage, ArtcraftUsageType};
@@ -37,7 +40,7 @@ pub async fn generate_video_command(request: OmniRequest, app: AppHandle) -> Omn
   }
   adapt_legacy_response(generate_video_native(
     decode_native(request)?, app.clone(),
-    app.state(), app.state(), app.state(), app.state(), app.state(), app.state(), app.state(), app.state(), app.state(),
+    app.state(), app.state(), app.state(), app.state(), app.state(), app.state(), app.state(), app.state(), app.state(), app.state(),
   ).await)
 }
 
@@ -53,6 +56,7 @@ async fn generate_video_native(
   storyteller_creds_manager: State<'_, StorytellerCredentialManager>,
   sora_task_queue: State<'_, SoraTaskQueue>,
   sora_creds_manager: State<'_, SoraCredentialManager>,
+  credential_cache: State<'_, ProviderCredentialLoadingCache>,
 ) -> Response<TauriGenerateVideoResponse, TauriGenerateVideoErrorType, ()> {
 
   info!("generate_video_command called, request: {:?}", request);
@@ -69,6 +73,22 @@ async fn generate_video_native(
     request.start_frame_image_media_token = request.image_media_token.clone();
   }
 
+  // Venice.ai BYOK queues the video, persists the local task and polls for the
+  // result in the background (no ArtCraft account required).
+  if matches!(request.provider, Some(GenerationProvider::Venice)) {
+    return match handle_venice_video_enqueue(
+      &request,
+      &app,
+      &app_env_configs,
+      &task_database,
+      &storyteller_creds_manager,
+      &credential_cache,
+    ).await {
+      Ok(()) => Ok(TauriGenerateVideoResponse {}.into()),
+      Err(err) => handle_video_error(&app, err).await,
+    };
+  }
+
   let result = handle_request(
     request,
     &app,
@@ -83,46 +103,7 @@ async fn generate_video_native(
   ).await;
 
   match result {
-    Err(err) => {
-      error!("error: {:?}", err);
-
-      notify_frontend_of_errors(&app, &err).await;
-
-      let mut status = CommandErrorStatus::ServerError;
-      let mut error_type = TauriGenerateVideoErrorType::ServerError;
-      let mut error_message = "A server error occurred. Please try again. If it continues, please tell our staff about the problem.";
-
-      match err {
-        GenerateError::BadInput(BadInputReason::NoModelSpecified) => {
-          status = CommandErrorStatus::BadRequest;
-          error_type = TauriGenerateVideoErrorType::ModelNotSpecified;
-          error_message = "No model specified for video generation";
-        }
-        GenerateError::NoProviderAvailable => {
-          status = CommandErrorStatus::ServerError;
-          error_type = TauriGenerateVideoErrorType::NoProviderAvailable;
-          error_message = "No configured provider available for video generation";
-        }
-        GenerateError::MissingCredentials(MissingCredentialsReason::NeedsFalApiKey) => {
-          status = CommandErrorStatus::Unauthorized;
-          error_type = TauriGenerateVideoErrorType::NeedsFalApiKey;
-          error_message = "You need to set a FAL api key";
-        },
-        GenerateError::MissingCredentials(MissingCredentialsReason::NeedsStorytellerCredentials) => {
-          status = CommandErrorStatus::Unauthorized;
-          error_type = TauriGenerateVideoErrorType::NeedsStorytellerCredentials;
-          error_message = "You need to be logged into Artcraft.";
-        }
-        _ => {}, // Fall-through
-      }
-
-      Err(CommandErrorResponseWrapper {
-        status,
-        error_message: Some(error_message.to_string()),
-        error_type: Some(error_type),
-        error_details: None,
-      })
-    }
+    Err(err) => handle_video_error(&app, err).await,
     Ok(event) => {
       let event = GenerationEnqueueSuccessEvent {
         action: event.to_frontend_event_action(),
@@ -139,6 +120,56 @@ async fn generate_video_native(
       Ok(TauriGenerateVideoResponse {}.into())
     }
   }
+}
+
+async fn handle_video_error(app: &AppHandle, err: GenerateError) -> Response<TauriGenerateVideoResponse, TauriGenerateVideoErrorType, ()> {
+  error!("error: {:?}", err);
+
+  notify_frontend_of_errors(app, &err).await;
+
+  if matches!(&err, GenerateError::MissingCredentials(MissingCredentialsReason::NeedsVeniceApiKey)) {
+    ShowProviderLoginModalEvent::send_for_provider(GenerationProvider::Venice, app);
+  }
+
+  let mut status = CommandErrorStatus::ServerError;
+  let mut error_type = TauriGenerateVideoErrorType::ServerError;
+  let mut error_message = "A server error occurred. Please try again. If it continues, please tell our staff about the problem.";
+
+  match err {
+    GenerateError::BadInput(BadInputReason::NoModelSpecified) => {
+      status = CommandErrorStatus::BadRequest;
+      error_type = TauriGenerateVideoErrorType::ModelNotSpecified;
+      error_message = "No model specified for video generation";
+    }
+    GenerateError::NoProviderAvailable => {
+      status = CommandErrorStatus::ServerError;
+      error_type = TauriGenerateVideoErrorType::NoProviderAvailable;
+      error_message = "No configured provider available for video generation";
+    }
+    GenerateError::MissingCredentials(MissingCredentialsReason::NeedsFalApiKey) => {
+      status = CommandErrorStatus::Unauthorized;
+      error_type = TauriGenerateVideoErrorType::NeedsFalApiKey;
+      error_message = "You need to set a FAL api key";
+    },
+    GenerateError::MissingCredentials(MissingCredentialsReason::NeedsVeniceApiKey) => {
+      status = CommandErrorStatus::Unauthorized;
+      error_type = TauriGenerateVideoErrorType::NeedsVeniceApiKey;
+      error_message = "You need to set a Venice.ai API key";
+    },
+    GenerateError::MissingCredentials(MissingCredentialsReason::NeedsStorytellerCredentials) => {
+      status = CommandErrorStatus::Unauthorized;
+      error_type = TauriGenerateVideoErrorType::NeedsStorytellerCredentials;
+      error_message = "You need to be logged into Artcraft.";
+    }
+    _ => {}, // Fall-through
+  }
+
+  Err(CommandErrorResponseWrapper {
+    status,
+    error_message: Some(error_message.to_string()),
+    error_type: Some(error_type),
+    error_details: None,
+  })
 }
 
 async fn handle_request(

@@ -59,6 +59,7 @@ export enum GenerateVideoErrorType {
   ServerError = "server_error",
   NeedsFalApiKey = "needs_fal_api_key",
   FalError = "fal_error",
+  NeedsVeniceApiKey = "needs_venice_api_key",
   NeedsStorytellerCredentials = "needs_storyteller_credentials",
 }
 

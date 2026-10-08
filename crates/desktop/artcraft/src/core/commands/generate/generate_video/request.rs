@@ -148,5 +148,7 @@ pub enum TauriGenerateVideoErrorType {
   ServerError,
   NeedsFalApiKey,
   FalError,
+  /// Needs a Venice.ai API key
+  NeedsVeniceApiKey,
   NeedsStorytellerCredentials,
 }

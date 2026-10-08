@@ -123,7 +123,8 @@ fn generate_error_reason(err: &GenerateError) -> String {
   format!("Venice generation failed: {:?}", err)
 }
 
-fn load_venice_api_key(credential_cache: &ProviderCredentialLoadingCache) -> Result<VeniceApiKey, GenerateError> {
+pub(crate) fn load_venice_api_key(credential_cache: &ProviderCredentialLoadingCache) -> Result<VeniceApiKey, GenerateError> {
+  // NB: Also used by the Venice video handler.
   match credential_cache.get_credentials(ProviderCredentialKey::VeniceApiKey) {
     Ok(Some(ProviderCredentialPayload::ApiKey(data))) => Ok(VeniceApiKey::from_str(data.as_str())),
     Ok(_) => Err(GenerateError::needs_venice_api_key()),

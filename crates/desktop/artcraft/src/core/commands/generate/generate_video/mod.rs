@@ -3,3 +3,4 @@ pub mod request;
 mod artcraft;
 mod grok;
 pub mod sora2;
+pub mod venice;
