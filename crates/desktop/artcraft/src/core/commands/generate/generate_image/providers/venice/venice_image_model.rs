@@ -23,8 +23,10 @@ pub enum VeniceSizingMode {
 /// A desktop image model that can be dispatched to Venice, and its counterpart.
 #[derive(Clone, Copy, Debug)]
 pub struct VeniceImageModelSpec {
-  /// The Venice API model id.
+  /// The Venice API model id for generation.
   pub venice_model: &'static str,
+  /// The Venice API model id for single/multi-image edits.
+  pub edit_model: &'static str,
   pub sizing: VeniceSizingMode,
   /// Whether the model honors the `quality` parameter (low/medium/high).
   pub supports_quality: bool,
@@ -39,14 +41,14 @@ pub fn venice_model_spec(tauri_model: TauriImageModel) -> Option<VeniceImageMode
   const ASPECT_ONLY: VeniceSizingMode = VeniceSizingMode::AspectRatioOnly;
 
   let spec = match tauri_model {
-    TauriImageModel::NanoBanana2 => VeniceImageModelSpec { venice_model: "nano-banana-2", sizing: TIERS, supports_quality: false },
-    TauriImageModel::NanoBananaPro => VeniceImageModelSpec { venice_model: "nano-banana-pro", sizing: TIERS, supports_quality: false },
-    TauriImageModel::GptImage1p5 => VeniceImageModelSpec { venice_model: "gpt-image-1-5", sizing: ASPECT_ONLY, supports_quality: false },
-    TauriImageModel::GptImage2 => VeniceImageModelSpec { venice_model: "gpt-image-2", sizing: TIERS, supports_quality: true },
-    TauriImageModel::GptImage2p5Flare => VeniceImageModelSpec { venice_model: "gpt-image-2-5-flare", sizing: TIERS, supports_quality: true },
-    TauriImageModel::GptImage2p5Sunburst => VeniceImageModelSpec { venice_model: "gpt-image-2-5-sunburst", sizing: TIERS, supports_quality: true },
-    TauriImageModel::Seedream4 => VeniceImageModelSpec { venice_model: "seedream-v4", sizing: ASPECT_ONLY, supports_quality: false },
-    TauriImageModel::Seedream5Lite => VeniceImageModelSpec { venice_model: "seedream-v5-lite", sizing: ASPECT_ONLY, supports_quality: false },
+    TauriImageModel::NanoBanana2 => VeniceImageModelSpec { venice_model: "nano-banana-2", edit_model: "nano-banana-2-edit", sizing: TIERS, supports_quality: false },
+    TauriImageModel::NanoBananaPro => VeniceImageModelSpec { venice_model: "nano-banana-pro", edit_model: "nano-banana-pro-edit", sizing: TIERS, supports_quality: false },
+    TauriImageModel::GptImage1p5 => VeniceImageModelSpec { venice_model: "gpt-image-1-5", edit_model: "gpt-image-1-5-edit", sizing: ASPECT_ONLY, supports_quality: false },
+    TauriImageModel::GptImage2 => VeniceImageModelSpec { venice_model: "gpt-image-2", edit_model: "gpt-image-2-edit", sizing: TIERS, supports_quality: true },
+    TauriImageModel::GptImage2p5Flare => VeniceImageModelSpec { venice_model: "gpt-image-2-5-flare", edit_model: "gpt-image-2-5-flare-edit", sizing: TIERS, supports_quality: true },
+    TauriImageModel::GptImage2p5Sunburst => VeniceImageModelSpec { venice_model: "gpt-image-2-5-sunburst", edit_model: "gpt-image-2-5-sunburst-edit", sizing: TIERS, supports_quality: true },
+    TauriImageModel::Seedream4 => VeniceImageModelSpec { venice_model: "seedream-v4", edit_model: "seedream-v4-edit", sizing: ASPECT_ONLY, supports_quality: false },
+    TauriImageModel::Seedream5Lite => VeniceImageModelSpec { venice_model: "seedream-v5-lite", edit_model: "seedream-v5-lite-edit", sizing: ASPECT_ONLY, supports_quality: false },
     _ => return None,
   };
 
@@ -127,10 +129,11 @@ mod tests {
 
     #[test]
     fn maps_the_expected_models() {
-      let cases = [(TauriImageModel::NanoBanana2, "nano-banana-2"), (TauriImageModel::NanoBananaPro, "nano-banana-pro"), (TauriImageModel::GptImage1p5, "gpt-image-1-5"), (TauriImageModel::GptImage2, "gpt-image-2"), (TauriImageModel::GptImage2p5Flare, "gpt-image-2-5-flare"), (TauriImageModel::GptImage2p5Sunburst, "gpt-image-2-5-sunburst"), (TauriImageModel::Seedream4, "seedream-v4"), (TauriImageModel::Seedream5Lite, "seedream-v5-lite")];
-      for (tauri_model, expected) in cases {
+      let cases = [(TauriImageModel::NanoBanana2, "nano-banana-2", "nano-banana-2-edit"), (TauriImageModel::NanoBananaPro, "nano-banana-pro", "nano-banana-pro-edit"), (TauriImageModel::GptImage1p5, "gpt-image-1-5", "gpt-image-1-5-edit"), (TauriImageModel::GptImage2, "gpt-image-2", "gpt-image-2-edit"), (TauriImageModel::GptImage2p5Flare, "gpt-image-2-5-flare", "gpt-image-2-5-flare-edit"), (TauriImageModel::GptImage2p5Sunburst, "gpt-image-2-5-sunburst", "gpt-image-2-5-sunburst-edit"), (TauriImageModel::Seedream4, "seedream-v4", "seedream-v4-edit"), (TauriImageModel::Seedream5Lite, "seedream-v5-lite", "seedream-v5-lite-edit")];
+      for (tauri_model, expected_model, expected_edit_model) in cases {
         let spec = venice_model_spec(tauri_model).expect("model should be supported");
-        assert_eq!(spec.venice_model, expected);
+        assert_eq!(spec.venice_model, expected_model);
+        assert_eq!(spec.edit_model, expected_edit_model);
         assert!(venice_supports_tauri_model(tauri_model));
       }
     }

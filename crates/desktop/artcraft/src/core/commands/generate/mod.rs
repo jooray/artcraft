@@ -6,4 +6,5 @@ pub mod omni;
 
 pub mod generate_mesh_command;
 pub mod generate_splat_command;
+pub mod generate_audio;
 pub mod generate_audio_command;

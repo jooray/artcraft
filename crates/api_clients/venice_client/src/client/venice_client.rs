@@ -5,6 +5,12 @@ use serde::Serialize;
 
 use crate::creds::venice_api_key::VeniceApiKey;
 use crate::error::venice_error::VeniceError;
+use crate::requests::audio::queue_audio_request::VeniceQueueAudioRequest;
+use crate::requests::audio::queue_audio_response::VeniceQueueAudioResponse;
+use crate::requests::audio::retrieve_audio_request::VeniceRetrieveAudioRequest;
+use crate::requests::audio::retrieve_audio_response::{VeniceAudioRetrieveResponse, VeniceAudioRetrieveStatus};
+use crate::requests::edit_image::edit_image_request::VeniceEditImageRequest;
+use crate::requests::edit_image::multi_edit_request::VeniceMultiEditImageRequest;
 use crate::requests::generate_image::generate_image_request::VeniceGenerateImageRequest;
 use crate::requests::generate_image::generate_image_response::VeniceGenerateImageResponse;
 use crate::requests::video::queue_video_request::VeniceQueueVideoRequest;
@@ -40,6 +46,48 @@ impl VeniceClient {
   /// `POST /image/generate`. Synchronous: the response carries base64 images.
   pub async fn generate_image(&self, request: &VeniceGenerateImageRequest) -> Result<VeniceGenerateImageResponse, VeniceError> {
     self.post_json("/image/generate", request).await
+  }
+
+  /// `POST /image/edit` (single-image edit / inpaint). The endpoint returns the
+  /// edited image as binary data.
+  pub async fn edit_image(&self, request: &VeniceEditImageRequest) -> Result<Vec<u8>, VeniceError> {
+    self.post_for_image_bytes("/image/edit", request).await
+  }
+
+  /// `POST /image/multi-edit` (layered multi-image edit). Returns the edited
+  /// image as binary data.
+  pub async fn multi_edit_image(&self, request: &VeniceMultiEditImageRequest) -> Result<Vec<u8>, VeniceError> {
+    self.post_for_image_bytes("/image/multi-edit", request).await
+  }
+
+  /// `POST /audio/queue` (music / sound effects). Asynchronous: returns a
+  /// `queue_id` to poll with [`retrieve_audio`](Self::retrieve_audio).
+  pub async fn queue_audio(&self, request: &VeniceQueueAudioRequest) -> Result<VeniceQueueAudioResponse, VeniceError> {
+    self.post_json("/audio/queue", request).await
+  }
+
+  /// `POST /audio/retrieve`. Returns a status while processing or the finished
+  /// audio file once complete.
+  pub async fn retrieve_audio(&self, request: &VeniceRetrieveAudioRequest) -> Result<VeniceAudioRetrieveResponse, VeniceError> {
+    let url = format!("{}{}", VENICE_API_BASE_URL, "/audio/retrieve");
+
+    let response = self.http.post(&url).bearer_auth(self.api_key.as_str()).json(request).send().await?;
+
+    let status = response.status();
+    let content_type = response.headers().get(reqwest::header::CONTENT_TYPE).and_then(|value| value.to_str().ok()).unwrap_or("").to_string();
+    let bytes = response.bytes().await?;
+
+    if !status.is_success() {
+      return Err(VeniceError::Api { status, message: extract_error_message(&String::from_utf8_lossy(&bytes)) });
+    }
+
+    if content_type.starts_with("audio/") || content_type.starts_with("application/octet-stream") {
+      return Ok(VeniceAudioRetrieveResponse::Audio { bytes: bytes.to_vec(), content_type });
+    }
+
+    let parsed: VeniceAudioRetrieveStatus = serde_json::from_slice(&bytes)?;
+
+    Ok(VeniceAudioRetrieveResponse::Processing { status: parsed.status, maybe_average_execution_time: parsed.average_execution_time, maybe_execution_duration: parsed.execution_duration })
   }
 
   /// `POST /video/queue`. Asynchronous: returns a `queue_id` to poll with
@@ -92,6 +140,38 @@ impl VeniceClient {
   }
 
   // ── Helpers ──
+
+  /// POST an edit request and return the edited image bytes. Handles both the
+  /// documented binary response and (defensively) base64 JSON responses.
+  async fn post_for_image_bytes<TRequest>(&self, path: &str, request: &TRequest) -> Result<Vec<u8>, VeniceError>
+  where
+    TRequest: Serialize + Sync,
+  {
+    let url = format!("{}{}", VENICE_API_BASE_URL, path);
+
+    let response = self.http.post(&url).bearer_auth(self.api_key.as_str()).json(request).send().await?;
+
+    let status = response.status();
+    let content_type = response.headers().get(reqwest::header::CONTENT_TYPE).and_then(|value| value.to_str().ok()).unwrap_or("").to_string();
+    let bytes = response.bytes().await?;
+
+    if !status.is_success() {
+      return Err(VeniceError::Api { status, message: extract_error_message(&String::from_utf8_lossy(&bytes)) });
+    }
+
+    if content_type.starts_with("image/") || content_type.starts_with("application/octet-stream") {
+      return Ok(bytes.to_vec());
+    }
+
+    // Defensive: tolerate a JSON body that carries base64 images.
+    if let Ok(parsed) = serde_json::from_slice::<VeniceGenerateImageResponse>(&bytes) {
+      if let Some(first_image) = parsed.images.first() {
+        return crate::utils::decode_base64_image(first_image);
+      }
+    }
+
+    Err(VeniceError::Other(format!("Unexpected image edit response (content-type: {})", content_type)))
+  }
 
   async fn post_json<TRequest, TResponse>(&self, path: &str, request: &TRequest) -> Result<TResponse, VeniceError>
   where

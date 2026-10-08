@@ -1,5 +1,6 @@
 import { GenerateAudio, EstimateAudioCost } from "@storyteller/tauri-api";
 import type { OmniGenAudioRequest } from "@storyteller/api";
+import { GenerationProvider } from "@storyteller/api-enums";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PromptBoxAudio, usePromptAudioStore } from "@storyteller/ui-promptbox";
 import {
@@ -25,16 +26,41 @@ import {
 import { useDesktopUsername } from "~/components/generation-feed/useDesktopUsername";
 import { DesktopCreatePageShell } from "~/components/generation-feed/DesktopCreatePageShell";
 import { DesktopGenerationGallery } from "~/components/generation-feed/DesktopGenerationGallery";
-
-const generateAudio = async (request: OmniGenAudioRequest) => (await GenerateAudio(request)).payload;
-const estimateAudio = async (request: OmniGenAudioRequest) => (await EstimateAudioCost(request)).payload;
+import { isVeniceAudioModel, withVeniceAudioModels } from "./veniceAudioModels";
+import { mergeAudioGalleryItems, useLocalCompletedAudioTasks } from "./useLocalCompletedAudioTasks";
 
 const AUDIO_FILTER = [FilterMediaClasses.AUDIO];
 
 const CreateAudio = () => {
-  const { models } = useOmniGenAudioModels();
+  const { models: omniAudioModels } = useOmniGenAudioModels();
+  // Venice.ai BYOK audio models are desktop-only; the backend listing doesn't
+  // know about them.
+  const models = useMemo(() => withVeniceAudioModels(omniAudioModels), [omniAudioModels]);
   const promptContentRef = useRef<HTMLDivElement>(null);
   const [promptHeight, setPromptHeight] = useState<number>(138);
+
+  // Tag Venice model requests with the provider so the desktop backend queues
+  // them directly against api.venice.ai instead of the ArtCraft backend.
+  const generateAudioWithProvider = useCallback(
+    async (request: OmniGenAudioRequest) => {
+      const isVenice = isVeniceAudioModel(request.model);
+      const response = await GenerateAudio(
+        isVenice ? { ...request, provider: GenerationProvider.Venice } : request,
+      );
+      return response.payload;
+    },
+    [],
+  );
+  const estimateAudioWithProvider = useCallback(
+    async (request: OmniGenAudioRequest) => {
+      const isVenice = isVeniceAudioModel(request.model);
+      const response = await EstimateAudioCost(
+        isVenice ? { ...request, provider: GenerationProvider.Venice } : request,
+      );
+      return response.payload;
+    },
+    [],
+  );
 
   // Cost estimate inputs come from the shared audio prompt store (the
   // promptbox owns the settings; the page only observes them).
@@ -55,7 +81,7 @@ const CreateAudio = () => {
     sampleRateHz: selectedModel?.sample_rate_hz_options?.length
       ? (selectedModel.sample_rate_hz_default ?? undefined)
       : undefined,
-  }, estimateAudio);
+  }, estimateAudioWithProvider);
 
   // Track the promptbox height so the feed can pad past it.
   useEffect(() => {
@@ -78,13 +104,21 @@ const CreateAudio = () => {
     excludeUploads: true,
   });
 
+  // Venice BYOK results (uploaded or saved locally) live in the local task
+  // database, not in the backend jobs feed.
+  const localCompletedItems = useLocalCompletedAudioTasks();
+  const mergedGalleryItems = useMemo(
+    () => mergeAudioGalleryItems(gallery.items, localCompletedItems),
+    [gallery.items, localCompletedItems],
+  );
+
   // Content only — while the gallery is still loading the shell keeps the
   // hero + background up as a splash and fades them out when items land.
   const hasContent =
     feed.inProgress.length > 0 ||
     feed.failed.length > 0 ||
     feed.newlyCompleted.length > 0 ||
-    gallery.items.length > 0;
+    mergedGalleryItems.length > 0;
 
   const newlyCompletedTokens = useMemo(
     () => new Set(feed.newlyCompleted.map((item) => item.id)),
@@ -101,7 +135,7 @@ const CreateAudio = () => {
         merged.push(item);
       }
     }
-    for (const item of gallery.items) {
+    for (const item of mergedGalleryItems) {
       if (!seen.has(item.id)) {
         seen.add(item.id);
         merged.push(item);
@@ -112,7 +146,7 @@ const CreateAudio = () => {
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
     return merged;
-  }, [feed.newlyCompleted, gallery.items]);
+  }, [feed.newlyCompleted, mergedGalleryItems]);
 
   const flatCompletedRef = useRef(flatCompleted);
   flatCompletedRef.current = flatCompleted;
@@ -155,7 +189,7 @@ const CreateAudio = () => {
           failedJobs={feed.failed}
           onDismissFailed={feed.dismissFailed}
           newlyCompletedItems={feed.newlyCompleted}
-          galleryItems={gallery.items}
+          galleryItems={mergedGalleryItems}
           newlyCompletedTokens={newlyCompletedTokens}
           hasMore={gallery.hasMore}
           isLoading={gallery.isLoading}
@@ -169,7 +203,7 @@ const CreateAudio = () => {
         <div className="fixed bottom-4 left-1/2 z-20 w-full max-w-5xl -translate-x-1/2 px-2 sm:px-4">
           <div ref={promptContentRef}>
             <PromptBoxAudio
-              generateAudio={generateAudio}
+              generateAudio={generateAudioWithProvider}
               models={models}
               uploadAudio={UploadAudioMedia}
               uploadImage={UploadImageMedia}
