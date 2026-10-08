@@ -1,7 +1,7 @@
 import { Button } from "@storyteller/ui-button";
 import { Transition, TransitionChild } from "@headlessui/react";
 import { useState, useEffect, useRef } from "react";
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon, XIcon } from "lucide-react";
 import { DiscordIcon } from "@storyteller/icons";
 import type { UserInfo } from "@storyteller/api";
 import { DesktopLoginBridge } from "./DesktopLoginBridge";
@@ -61,6 +61,10 @@ export function LoginModal({
   useEffect(() => {
     const generation = ++authGeneration.current;
     let active = true;
+    // The initial mount check must not force the modal open: Venice BYOK
+    // users can use the app without an ArtCraft account. Only an explicit
+    // login trigger (TopBar, account settings) opens it.
+    const isExplicitRecheck = recheckTrigger > 0;
     getNativeLoginSession().then((user) => {
       if (!active || generation !== authGeneration.current) return;
       if (user) {
@@ -75,12 +79,16 @@ export function LoginModal({
         setShowSuccess(false);
         setLoggedInUsername(null);
         setIsLoggedInArtCraft(false);
-        useLoginModalStore.getState().openModal();
+        if (isExplicitRecheck) {
+          useLoginModalStore.getState().openModal();
+        }
       }
     }).catch((error) => {
       if (!active || generation !== authGeneration.current) return;
       setErrorMessage(isDesktopLoginError(error) ? error.message : "Unable to check your account. Please sign in again.");
-      useLoginModalStore.getState().openModal();
+      if (isExplicitRecheck) {
+        useLoginModalStore.getState().openModal();
+      }
     });
     return () => { active = false; };
   }, [recheckTrigger, closeModal, initialIsSignUp]);
@@ -88,6 +96,21 @@ export function LoginModal({
   useEffect(() => {
     if (onOpenChange) onOpenChange(isOpen);
   }, [isOpen, onOpenChange]);
+
+  // The modal is always dismissible (Escape, backdrop click, close button) —
+  // it can be opened for login without blocking users who work with BYOK
+  // providers only.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        useLoginModalStore.getState().closeModal();
+        afterClose.current?.();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen]);
 
   useEffect(() => {
     if (loggedInUsername === null || !isOpen) return;
@@ -217,7 +240,7 @@ export function LoginModal({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 cursor-pointer bg-black/80" />
+          <div className="fixed inset-0 cursor-pointer bg-black/80" onClick={handleClose} />
         </TransitionChild>
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <TransitionChild
@@ -232,6 +255,16 @@ export function LoginModal({
               className={`relative w-full ${loggedInUsername !== null ? "max-w-md" : "max-w-lg lg:max-w-5xl"}`}
               onClick={(e) => e.stopPropagation()}
             >
+              {loggedInUsername === null && !inOnboarding && (
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={handleClose}
+                  className="absolute right-3 top-3 z-20 rounded-[3px] p-2 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  <XIcon className="h-4 w-4" />
+                </button>
+              )}
               <div
                 className={`relative flex w-full overflow-hidden border border-white/20 bg-[#1e1f22] text-white ${loggedInUsername !== null ? "" : "lg:min-h-[560px]"}`}
               >
