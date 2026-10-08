@@ -52,6 +52,8 @@ function getServiceProviderName(provider: GenerationProvider) : string {
       return "PixVerse";
     case GenerationProvider.Runway:
       return "Runway";
+    case GenerationProvider.Venice:
+      return "Venice.ai";
     case GenerationProvider.Artcraft:
     default:
       return "Artcraft";

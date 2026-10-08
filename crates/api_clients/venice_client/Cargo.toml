@@ -1,0 +1,26 @@
+[package]
+name = "venice_client"
+edition = "2021"
+rust-version = "1.75" # MSRV: async traits
+version = "0.0.1"
+publish = false
+
+[lib]
+name = "venice_client"
+path = "src/lib.rs"
+
+[dependencies]
+
+# Internal
+errors.workspace = true
+
+# External
+base64.workspace = true
+log.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }

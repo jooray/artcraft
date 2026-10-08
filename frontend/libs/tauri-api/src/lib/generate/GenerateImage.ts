@@ -70,6 +70,7 @@ export enum GenerateImageErrorType {
   NeedsStorytellerCredentials = "needs_storyteller_credentials",
   NeedsGrokCredentials = "needs_grok_credentials",
   NeedsMidjourneyCredentials = "needs_midjourney_credentials",
+  NeedsVeniceApiKey = "needs_venice_api_key",
   BillingIssue = "billing_issue",
 }
 

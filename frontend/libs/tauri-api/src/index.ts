@@ -34,6 +34,7 @@ export * from "./lib/openai/SetOpenAIApiKey.js";
 export * from "./lib/opener/OpenUrl.js";
 export * from "./lib/providers/GetProviderOrder.js";
 export * from "./lib/providers/Provider.js";
+export * from "./lib/providers/ProviderCredentials.js";
 export * from "./lib/providers/SetProviderOrder.js";
 export * from "./lib/settings/GetAppPreferences.js";
 export * from "./lib/settings/UpdateAppPreference.js";

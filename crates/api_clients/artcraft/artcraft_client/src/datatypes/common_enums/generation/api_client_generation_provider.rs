@@ -22,6 +22,7 @@ pub enum ApiClientGenerationProvider {
   Picsart,
   Pixverse,
   Runway,
+  Venice,
   /// A value not known to this client build (preserved as-is).
   Unknown(String),
 }
@@ -43,6 +44,7 @@ impl From<String> for ApiClientGenerationProvider {
       "picsart" => Self::Picsart,
       "pixverse" => Self::Pixverse,
       "runway" => Self::Runway,
+      "venice" => Self::Venice,
       _ => Self::Unknown(value),
     }
   }
@@ -65,6 +67,7 @@ impl From<ApiClientGenerationProvider> for String {
       ApiClientGenerationProvider::Picsart => "picsart".to_string(),
       ApiClientGenerationProvider::Pixverse => "pixverse".to_string(),
       ApiClientGenerationProvider::Runway => "runway".to_string(),
+      ApiClientGenerationProvider::Venice => "venice".to_string(),
       ApiClientGenerationProvider::Unknown(other) => other,
     }
   }
@@ -105,6 +108,7 @@ mod tests {
       (ApiClientGenerationProvider::Picsart, "picsart"),
       (ApiClientGenerationProvider::Pixverse, "pixverse"),
       (ApiClientGenerationProvider::Runway, "runway"),
+      (ApiClientGenerationProvider::Venice, "venice"),
     ];
     for (variant, s) in all {
       assert_eq!(String::from(variant.clone()), s, "serialize mismatch for {:?}", variant);

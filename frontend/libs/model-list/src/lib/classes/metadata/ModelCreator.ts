@@ -23,6 +23,7 @@ export enum ModelCreator {
   WorldLabs = "WorldLabs",
   Beeble = "Beeble",
   Suno = "Suno",
+  Venice = "Venice",
 }
 
 /** Backend `model_creator` snake_case string -> frontend `ModelCreator` enum. */

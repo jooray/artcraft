@@ -11,6 +11,7 @@ use midjourney_client::error::midjourney_error::MidjourneyError;
 use openai_sora_client::error::sora_error::SoraError;
 use artcraft_client::error::storyteller_error::StorytellerError;
 use artcraft_router::errors::download_error::DownloadError;
+use venice_client::error::venice_error::VeniceError;
 use worldlabs_consumer_client::error::world_labs_error::WorldLabsError;
 //use fal_client::error::fal_error_plus::FalErrorPlus;
 
@@ -83,6 +84,7 @@ pub enum MissingCredentialsReason {
   NeedsMidjourneyUserInfo,
   NeedsSoraCredentials,
   NeedsStorytellerCredentials,
+  NeedsVeniceApiKey,
   NeedsWorldLabsCredentials,
 }
 
@@ -111,6 +113,7 @@ pub enum ProviderFailureReason {
   MidjourneyJobEnqueueFailed,
   SoraError(SoraError),
   StorytellerError(StorytellerError),
+  VeniceError(VeniceError),
   WorldLabsError(WorldLabsError),
 }
 
@@ -158,6 +161,10 @@ impl GenerateError {
 
   pub fn needs_storyteller_credentials() -> Self {
     Self::MissingCredentials(MissingCredentialsReason::NeedsStorytellerCredentials)
+  }
+
+  pub fn needs_venice_api_key() -> Self {
+    Self::MissingCredentials(MissingCredentialsReason::NeedsVeniceApiKey)
   }
 
   pub fn needs_worldlabs_credentials() -> Self {
@@ -216,6 +223,12 @@ impl From<SoraError> for GenerateError {
 impl From<StorytellerError> for GenerateError {
   fn from(value: StorytellerError) -> Self {
     Self::ProviderFailure(ProviderFailureReason::StorytellerError(value))
+  }
+}
+
+impl From<VeniceError> for GenerateError {
+  fn from(value: VeniceError) -> Self {
+    Self::ProviderFailure(ProviderFailureReason::VeniceError(value))
   }
 }
 

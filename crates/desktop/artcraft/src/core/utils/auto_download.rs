@@ -3,7 +3,7 @@ use crate::core::state::app_preferences::app_preferences::AppPreferences;
 use crate::core::state::app_preferences::app_preferences_manager::AppPreferencesManager;
 use crate::core::state::data_dir::app_data_root::AppDataRoot;
 use crate::core::state::data_dir::trait_data_subdir::DataSubdir;
-use crate::core::utils::download_url_to_user_download_dir::{download_url_with_filename, suggested_download_filename};
+use crate::core::utils::download_url_to_user_download_dir::{download_url_with_filename, save_local_file_with_filename, suggested_download_filename};
 use crate::services::storyteller::state::storyteller_credential_manager::StorytellerCredentialManager;
 use anyhow::{anyhow, ensure};
 use artcraft_client::endpoints::media_files::list_batch_generated_redux_media_files::list_batch_generated_redux_media_files;
@@ -72,6 +72,41 @@ pub async fn auto_download_task(
 pub async fn auto_download_task_urls(app: &AppHandle, task: &Task, urls: &[Url]) -> AnyhowResult<()> {
   let prefs = app.state::<AppPreferencesManager>().get_clone()?;
   download_generated_results(&app.state::<AppDataRoot>(), &prefs, task, urls).await
+}
+
+/// For synchronous providers whose results are already files on disk.
+///
+/// Unlike the URL variant there is no checkpoint: inline completion is
+/// single-shot, so a retry simply saves the files again under a new name.
+pub fn auto_download_task_local_files(
+  app: &AppHandle,
+  task: &Task,
+  source_paths: &[PathBuf],
+) -> AnyhowResult<()> {
+  let prefs = app.state::<AppPreferencesManager>().get_clone()?;
+  if !prefs.auto_download {
+    return Ok(());
+  }
+  ensure!(!source_paths.is_empty(), "Completed task has no downloadable results");
+  let root = app.state::<AppDataRoot>();
+  let directory = prefs.preferred_download_directory.download_directory(&root);
+
+  for (index, source_path) in source_paths.iter().enumerate() {
+    // The filename helper reads the extension from a URL; a file URL carries
+    // the one from the generated file.
+    let url = Url::from_file_path(source_path)
+      .map_err(|_| anyhow!("Cannot build a file URL for {:?}", source_path))?;
+    let filename = suggested_download_filename(
+      &url,
+      &prefs,
+      task.model_type.as_ref().map(|model| model.to_str()),
+      (source_paths.len() > 1).then_some(index + 1),
+      Local::now(),
+    );
+    save_local_file_with_filename(source_path, &directory, &filename)?;
+  }
+
+  Ok(())
 }
 
 pub fn clear_auto_download_checkpoint(app: &AppHandle, task: &Task) {

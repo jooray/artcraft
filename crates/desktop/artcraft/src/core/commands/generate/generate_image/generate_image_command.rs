@@ -8,6 +8,7 @@ use crate::core::commands::enqueue::generate_error::{GenerateError, MissingCrede
 use crate::core::commands::enqueue::task_enqueue_success::TaskEnqueueSuccess;
 use crate::core::commands::generate::generate_image::providers::artcraft::handle_artcraft;
 use crate::core::commands::generate::generate_image::providers::artcraft_router::handle_router::handle_router;
+use crate::core::commands::generate::generate_image::providers::venice::handle_venice::handle_venice_enqueue;
 use crate::core::commands::generate::generate_image::tauri_generate_image_request::{
   TauriGenerateImageErrorType, TauriGenerateImageRequest, TauriGenerateImageResponse,
 };
@@ -47,6 +48,23 @@ async fn generate_image_native(
   info!("generate_image_command called, request: {:?}", request);
 
   let provider = request.provider.unwrap_or(GenerationProvider::Artcraft);
+
+  // Venice.ai BYOK generates synchronously, so it enqueues a local task
+  // immediately and completes it in the background instead of going through
+  // the router/polling pipeline.
+  if provider == GenerationProvider::Venice {
+    return match handle_venice_enqueue(
+      &request,
+      &app,
+      &app_env_configs,
+      &task_database,
+      &storyteller_creds_manager,
+      &credential_cache,
+    ).await {
+      Ok(()) => Ok(TauriGenerateImageResponse {}.into()),
+      Err(err) => handle_error_behavior(&app, err).await,
+    };
+  }
 
   let result = match provider {
     GenerationProvider::Artcraft => {
@@ -139,10 +157,14 @@ async fn handle_error_behavior(
   if matches!(&err, GenerateError::MissingCredentials(MissingCredentialsReason::NeedsMidjourneyCredentials | MissingCredentialsReason::NeedsMidjourneyUserId | MissingCredentialsReason::NeedsMidjourneyUserInfo)) {
     ShowProviderLoginModalEvent::send_for_provider(GenerationProvider::Midjourney, app);
   }
+  if matches!(&err, GenerateError::MissingCredentials(MissingCredentialsReason::NeedsVeniceApiKey)) {
+    ShowProviderLoginModalEvent::send_for_provider(GenerationProvider::Venice, app);
+  }
 
   let error_type = match &err {
     GenerateError::BadInput(_) => TauriGenerateImageErrorType::BadInput,
     GenerateError::MissingCredentials(MissingCredentialsReason::NeedsFalApiKey) => TauriGenerateImageErrorType::NeedsFalApiKey,
+    GenerateError::MissingCredentials(MissingCredentialsReason::NeedsVeniceApiKey) => TauriGenerateImageErrorType::NeedsVeniceApiKey,
     GenerateError::MissingCredentials(MissingCredentialsReason::NeedsGrokCredentials) => TauriGenerateImageErrorType::NeedsGrokCredentials,
     GenerateError::MissingCredentials(MissingCredentialsReason::NeedsMidjourneyCredentials | MissingCredentialsReason::NeedsMidjourneyUserId | MissingCredentialsReason::NeedsMidjourneyUserInfo) => TauriGenerateImageErrorType::NeedsMidjourneyCredentials,
     GenerateError::MissingCredentials(_) => TauriGenerateImageErrorType::NeedsStorytellerCredentials,

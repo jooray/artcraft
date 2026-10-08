@@ -2,9 +2,11 @@ import { Modal } from "@storyteller/ui-modal";
 import { invoke } from "@tauri-apps/api/core";
 import { ArrowRightIcon, WandSparklesIcon } from "lucide-react";
 import { Button } from "@storyteller/ui-button";
+import { Input } from "@storyteller/ui-input";
 import { useState } from "react";
 import { useShowProviderLoginModalEvent } from "@storyteller/tauri-events";
 import { GenerationProvider } from "@storyteller/common";
+import { ProviderCredentialKey, ProviderSetApiKey } from "@storyteller/tauri-api";
 
 interface ProviderSetupModalProps {
 }
@@ -13,6 +15,8 @@ export function ProviderSetupModal({
 }: ProviderSetupModalProps) {
   const [showModal, setShowModal] = useState(false);
   const [provider, setProvider] = useState<GenerationProvider>(GenerationProvider.Artcraft);
+  const [veniceApiKey, setVeniceApiKey] = useState("");
+  const [isSavingKey, setIsSavingKey] = useState(false);
 
   useShowProviderLoginModalEvent(async (event) => {
     // Retained native handlers can still emit these events for old tasks.
@@ -28,6 +32,7 @@ export function ProviderSetupModal({
   });
 
   const serviceProviderName = getServiceProviderName(provider);
+  const isVenice = provider === GenerationProvider.Venice;
 
   const modalTitle = `Set up ${serviceProviderName}`;
   const modalSubTitle = `Add your ${serviceProviderName} account to ArtCraft!`;
@@ -37,14 +42,33 @@ export function ProviderSetupModal({
     case GenerationProvider.Grok:
       modalDescription = `You can add your ${serviceProviderName} account to ArtCraft by simply logging in. Use can then use it directly within Artcraft. You can add all of your AI accounts to Artcraft to use them all in one place and build the ultimate AI art tool.`;
       break;
+    case GenerationProvider.Venice:
+      modalDescription = `Add your ${serviceProviderName} API key to use your own Venice.ai account directly within Artcraft. You pay Venice.ai directly — no ArtCraft credits are used. Create a key at venice.ai/settings/api.`;
+      break;
     default:
       modalDescription = `You can add your ${serviceProviderName} account to ArtCraft by simply logging in. Use your credits and account directly within Artcraft. You can add all of your AI accounts to Artcraft to use them all in one place and build the ultimate AI art tool.`;
       break;
   }
 
-  const modalButtonText = `Set up ${serviceProviderName}`;
+  const modalButtonText = isVenice ? "Save API key" : `Set up ${serviceProviderName}`;
 
   const buttonOnClick = async () => {
+    if (isVenice) {
+      const trimmedKey = veniceApiKey.trim();
+      if (!trimmedKey) return;
+      setIsSavingKey(true);
+      try {
+        await ProviderSetApiKey(ProviderCredentialKey.VeniceApiKey, trimmedKey);
+        setVeniceApiKey("");
+        setShowModal(false);
+      } catch (e) {
+        console.error("Error saving the Venice.ai API key", e);
+      } finally {
+        setIsSavingKey(false);
+      }
+      return;
+    }
+
     switch (provider) {
       case GenerationProvider.Grok:
         await invoke("grok_open_login_command");
@@ -87,15 +111,28 @@ export function ProviderSetupModal({
           </p>
         </div>
 
+        {isVenice && (
+          <Input
+            value={veniceApiKey}
+            onChange={(e) => setVeniceApiKey(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") buttonOnClick();
+            }}
+            placeholder="Paste your Venice.ai API key"
+            type="password"
+          />
+        )}
+
         <Button
           className="h-10 px-4"
           icon={ArrowRightIcon}
           iconFlip={true}
+          disabled={isVenice && (!veniceApiKey.trim() || isSavingKey)}
           onClick={() => {
             buttonOnClick();
           }}
         >
-          {modalButtonText}
+          {isSavingKey ? "Saving..." : modalButtonText}
         </Button>
       </div>
     </Modal>
@@ -126,6 +163,8 @@ function getServiceProviderName(provider: GenerationProvider) : string {
       return "PixVerse";
     case GenerationProvider.Runway:
       return "Runway";
+    case GenerationProvider.Venice:
+      return "Venice.ai";
     case GenerationProvider.Artcraft:
     default:
       return "Artcraft";

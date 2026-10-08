@@ -14,6 +14,7 @@ const GENERATION_PROVIDER_TO_CREATOR: Partial<Record<GenerationProvider, ModelCr
   [GenerationProvider.Krea]: ModelCreator.Krea,
   [GenerationProvider.Openart]: ModelCreator.OpenArt,
   [GenerationProvider.Runway]: ModelCreator.Runway,
+  [GenerationProvider.Venice]: ModelCreator.Venice,
 };
 
 export const getProviderIcon = (
@@ -65,6 +66,8 @@ export const getProviderDisplayName = (provider: GenerationProvider): string => 
       return "PixVerse";
     case GenerationProvider.Runway:
       return "Runway";
+    case GenerationProvider.Venice:
+      return "Venice";
     default:
       return "Unknown Provider";
   }

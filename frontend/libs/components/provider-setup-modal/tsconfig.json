@@ -6,10 +6,16 @@
       "path": "../../common"
     },
     {
+      "path": "../../tauri-api"
+    },
+    {
       "path": "../../tauri-events"
     },
     {
       "path": "../button"
+    },
+    {
+      "path": "../input"
     },
     {
       "path": "../modal"

@@ -118,6 +118,8 @@ pub enum TauriGenerateImageErrorType {
   NeedsStorytellerCredentials,
   /// Needs a FAL API key
   NeedsFalApiKey,
+  /// Needs a Venice.ai API key
+  NeedsVeniceApiKey,
   /// Needs Grok credentials
   NeedsGrokCredentials,
   NeedsMidjourneyCredentials,

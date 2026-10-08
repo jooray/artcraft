@@ -62,6 +62,19 @@ pub async fn download_url_with_filename(url: &Url, directory: &Path, filename: &
   Ok(path)
 }
 
+/// Copy a local generation file into `directory` under `filename`, with the
+/// same atomic, never-overwrite behavior as a downloaded URL.
+pub fn save_local_file_with_filename(source: &Path, directory: &Path, filename: &str) -> Result<PathBuf, ArtcraftError> {
+  check_url_file_name_for_downloadability(filename)?;
+  std::fs::create_dir_all(directory)?;
+  let temporary = NamedTempFile::new_in(directory)?;
+  std::fs::copy(source, temporary.path())?;
+  temporary.as_file().sync_all()?;
+  let path = persist_download(temporary, directory, filename)?;
+  info!("Saved generation to {:?}", path);
+  Ok(path)
+}
+
 fn persist_download(mut file: NamedTempFile, directory: &Path, filename: &str) -> Result<PathBuf, ArtcraftError> {
   let stem = Path::new(filename).file_stem().and_then(|stem| stem.to_str()).unwrap_or("artcraft");
   let extension = Path::new(filename).extension().and_then(|ext| ext.to_str()).unwrap_or("bin");

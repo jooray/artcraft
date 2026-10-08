@@ -9,6 +9,7 @@ pub enum ProviderCredentialKey {
 
   FalApiKey,
   ReplicateApiKey,
+  VeniceApiKey,
 
   // ========== WEB LOGINS ==========
 
@@ -25,6 +26,7 @@ impl ProviderCredentialKey {
       // Api keys
       Self::FalApiKey => ProviderCredentialType::ApiKey,
       Self::ReplicateApiKey => ProviderCredentialType::ApiKey,
+      Self::VeniceApiKey => ProviderCredentialType::ApiKey,
       // Web logins
       Self::GrokWebLogin => ProviderCredentialType::WebLogin,
       Self::HiggsfieldWebLogin => ProviderCredentialType::WebLogin,
@@ -38,6 +40,7 @@ impl ProviderCredentialKey {
       // Api keys
       ProviderCredentialKey::FalApiKey => "fal.api_key.txt",
       ProviderCredentialKey::ReplicateApiKey => "replicate.api_key.txt",
+      ProviderCredentialKey::VeniceApiKey => "venice.api_key.txt",
       // Web logins
       ProviderCredentialKey::GrokWebLogin => "grok.web_login.toml",
       ProviderCredentialKey::HiggsfieldWebLogin => "higgsfield.web_login.toml",

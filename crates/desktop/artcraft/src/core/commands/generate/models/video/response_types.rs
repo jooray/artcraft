@@ -42,6 +42,7 @@ pub enum ListVideoModelsProvider {
   Picsart,
   Pixverse,
   Runway,
+  Venice,
   Unknown(String),
 }
 
@@ -62,6 +63,7 @@ impl From<ApiClientGenerationProvider> for ListVideoModelsProvider {
       ApiClientGenerationProvider::Picsart => Self::Picsart,
       ApiClientGenerationProvider::Pixverse => Self::Pixverse,
       ApiClientGenerationProvider::Runway => Self::Runway,
+      ApiClientGenerationProvider::Venice => Self::Venice,
       ApiClientGenerationProvider::Unknown(other) => Self::Unknown(other),
     }
   }
@@ -84,6 +86,7 @@ impl From<ListVideoModelsProvider> for String {
       ListVideoModelsProvider::Picsart => "picsart".to_string(),
       ListVideoModelsProvider::Pixverse => "pixverse".to_string(),
       ListVideoModelsProvider::Runway => "runway".to_string(),
+      ListVideoModelsProvider::Venice => "venice".to_string(),
       ListVideoModelsProvider::Unknown(other) => other,
     }
   }

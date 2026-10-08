@@ -217,6 +217,7 @@ export const getProviderDisplayName = (provider: string): string => {
     midjourney: "Midjourney",
     sora: "Sora",
     worldlabs: "World Labs",
+    venice: "Venice",
   };
 
   return displayNames[provider] || provider;
@@ -234,6 +235,7 @@ export const getProviderIconByName = (
     midjourney: ModelCreator.Midjourney,
     sora: ModelCreator.OpenAi,
     worldlabs: ModelCreator.WorldLabs,
+    venice: ModelCreator.Venice,
   };
   const creator = providerToCreator[provider?.toLowerCase?.() ?? ""];
   if (!creator) return null;
