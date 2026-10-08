@@ -26,7 +26,7 @@ use crate::core::commands::enqueue::generate_error::{BadInputReason, GenerateErr
 use crate::core::commands::enqueue::task_enqueue_success::{generation_model_to_task_model_type, TaskEnqueueSuccess};
 use crate::core::commands::generate::generate_image::providers::artcraft_router::utils::map_media_files_to_urls::map_media_file_tokens_to_cdn_urls;
 use crate::core::commands::generate::generate_image::providers::venice::complete_venice_task::complete_venice_task;
-use crate::core::commands::generate::generate_image::providers::venice::venice_image_model::{map_aspect_ratio, map_quality, map_resolution, venice_model_spec, VeniceSizingMode, VENICE_MAX_VARIANTS};
+use crate::core::commands::generate::generate_image::providers::venice::venice_image_model::{map_aspect_ratio, map_quality, pixel_dimensions, resolve_supported_resolution, venice_model_spec, VeniceSizingMode, VENICE_MAX_VARIANTS};
 use crate::core::commands::generate::generate_image::tauri_generate_image_request::TauriGenerateImageRequest;
 use crate::core::commands::generate::generate_image::tauri_image_model::TauriImageModel;
 use crate::core::events::basic_sendable_event_trait::BasicSendableEvent;
@@ -203,8 +203,14 @@ async fn prepare_venice_request(request: &TauriGenerateImageRequest, app_env_con
   }
 
   let aspect_ratio = request.aspect_ratio.map(map_aspect_ratio).map(str::to_owned);
-  let resolution = if spec.sizing == VeniceSizingMode::AspectRatioAndResolution { request.resolution.and_then(map_resolution).map(str::to_owned) } else { None };
+  let resolution = request.resolution.and_then(|value| resolve_supported_resolution(value, spec.resolutions));
   let quality = if spec.supports_quality { request.quality.and_then(map_quality).map(str::to_owned) } else { None };
+
+  // Pixel-based models take width/height instead of aspect_ratio + resolution.
+  let (aspect_ratio, resolution, maybe_pixel_dimensions) = match spec.sizing {
+    VeniceSizingMode::Pixels { divisor } => (None, None, Some(pixel_dimensions(request.aspect_ratio, divisor))),
+    _ => (aspect_ratio, resolution, None),
+  };
 
   let input_images = resolve_input_images(request, app_env_configs).await?;
 
@@ -214,18 +220,24 @@ async fn prepare_venice_request(request: &TauriGenerateImageRequest, app_env_con
       venice_request.aspect_ratio = aspect_ratio;
       venice_request.resolution = resolution;
       venice_request.quality = quality;
+      if let Some((width, height)) = maybe_pixel_dimensions {
+        venice_request.width = Some(width);
+        venice_request.height = Some(height);
+      }
       venice_request.variants = map_variants(request.batch_size)?;
       VeniceImagePlan::Generate(venice_request)
     },
     1 => {
-      let mut venice_request = VeniceEditImageRequest::new(spec.edit_model, prompt, input_images.into_iter().next().unwrap_or_default());
+      let edit_model = spec.edit_model.ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {:?} does not support editing on Venice yet.", tauri_model))))?;
+      let mut venice_request = VeniceEditImageRequest::new(edit_model, prompt, input_images.into_iter().next().unwrap_or_default());
       venice_request.aspect_ratio = aspect_ratio;
       venice_request.resolution = resolution;
       venice_request.quality = quality;
       VeniceImagePlan::Edit(venice_request)
     },
     2..=MAX_EDIT_INPUT_IMAGES => {
-      let mut venice_request = VeniceMultiEditImageRequest::new(spec.edit_model, prompt, input_images);
+      let edit_model = spec.edit_model.ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {:?} does not support editing on Venice yet.", tauri_model))))?;
+      let mut venice_request = VeniceMultiEditImageRequest::new(edit_model, prompt, input_images);
       venice_request.aspect_ratio = aspect_ratio;
       venice_request.resolution = resolution;
       venice_request.quality = quality;
@@ -321,7 +333,7 @@ async fn create_prompt_record(request: &TauriGenerateImageRequest, tauri_model: 
     },
   };
 
-  let prompt_request = CreatePromptRequest { uuid_idempotency_token: generate_random_uuid(), positive_prompt: request.prompt.clone(), negative_prompt: None, model_type: Some(tauri_image_model_to_common_model_type(tauri_model)), generation_provider: Some(GenerationProvider::Venice), maybe_generation_mode: Some(generation_mode), maybe_aspect_ratio: request.aspect_ratio, maybe_resolution: request.resolution, maybe_batch_count: request.batch_size.map(|n| n.min(255) as u8), maybe_generate_audio: None, maybe_duration_seconds: None };
+  let prompt_request = CreatePromptRequest { uuid_idempotency_token: generate_random_uuid(), positive_prompt: request.prompt.clone(), negative_prompt: None, model_type: tauri_image_model_to_common_model_type(tauri_model), generation_provider: Some(GenerationProvider::Venice), maybe_generation_mode: Some(generation_mode), maybe_aspect_ratio: request.aspect_ratio, maybe_resolution: request.resolution, maybe_batch_count: request.batch_size.map(|n| n.min(255) as u8), maybe_generate_audio: None, maybe_duration_seconds: None };
 
   match create_prompt(&app_env_configs.storyteller_host, Some(&creds), prompt_request).await {
     Ok(response) => {

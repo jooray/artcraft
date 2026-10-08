@@ -3,8 +3,11 @@ use enums::common::generation::common_model_type::CommonModelType;
 use crate::core::commands::generate::generate_image::tauri_image_model::TauriImageModel;
 
 /// Map TauriImageModel to the legacy CommonModelType (enums crate).
-pub fn tauri_image_model_to_common_model_type(model: TauriImageModel) -> CommonModelType {
-  match model {
+///
+/// Newer Venice-only models have no legacy counterpart and return `None`
+/// (callers treat the model type as optional).
+pub fn tauri_image_model_to_common_model_type(model: TauriImageModel) -> Option<CommonModelType> {
+  let common = match model {
     TauriImageModel::Flux1Dev => CommonModelType::Flux1Dev,
     TauriImageModel::Flux1Schnell => CommonModelType::Flux1Schnell,
     TauriImageModel::FluxPro11 => CommonModelType::FluxPro11,
@@ -32,5 +35,9 @@ pub fn tauri_image_model_to_common_model_type(model: TauriImageModel) -> CommonM
     TauriImageModel::Flux2LoraAngles => CommonModelType::Flux2LoraAngles,
     TauriImageModel::FluxDevJuggernaut => CommonModelType::FluxDevJuggernaut,
     TauriImageModel::FluxPro1 => CommonModelType::FluxPro1,
-  }
+    // Venice-only models (and any future additions).
+    _ => return None,
+  };
+
+  Some(common)
 }

@@ -24,6 +24,9 @@ export enum ModelCreator {
   Beeble = "Beeble",
   Suno = "Suno",
   Venice = "Venice",
+  Ideogram = "Ideogram",
+  Luma = "Luma",
+  Muse = "Muse",
 }
 
 /** Backend `model_creator` snake_case string -> frontend `ModelCreator` enum. */

@@ -34,5 +34,19 @@ pub fn tauri_image_model_to_enums_model(model: TauriImageModel) -> Option<Common
     TauriImageModel::Midjourney => None, // NB: Generic Midjourney is served by the native Midjourney provider.
     TauriImageModel::FluxProKontextMax => None,
     TauriImageModel::FluxDevJuggernaut => None,
+    // Venice-only models are not served by the omni endpoint.
+    TauriImageModel::Flux2Pro => None,
+    TauriImageModel::Flux2Max => None,
+    TauriImageModel::Flux3Image => None,
+    TauriImageModel::Krea2Turbo => None,
+    TauriImageModel::Ideogram4p5 => None,
+    TauriImageModel::Recraft4 => None,
+    TauriImageModel::LumaUni1Max => None,
+    TauriImageModel::MuseImage => None,
+    TauriImageModel::NanoBanana2p1 => None,
+    TauriImageModel::Seedream5Pro => None,
+    TauriImageModel::QwenImage3Pro => None,
+    TauriImageModel::VeniceSd35 => None,
+    TauriImageModel::ZImageTurbo => None,
   }
 }

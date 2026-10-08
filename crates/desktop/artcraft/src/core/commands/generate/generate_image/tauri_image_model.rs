@@ -50,6 +50,34 @@ pub enum TauriImageModel {
   Seedream4p5,
   #[serde(rename = "seedream_5_lite")]
   Seedream5Lite,
+
+  // Venice-only models (BYOK): ids match Venice's own model ids.
+  #[serde(rename = "flux-2-pro")]
+  Flux2Pro,
+  #[serde(rename = "flux-2-max")]
+  Flux2Max,
+  #[serde(rename = "flux-3-image")]
+  Flux3Image,
+  #[serde(rename = "krea-2-turbo")]
+  Krea2Turbo,
+  #[serde(rename = "ideogram-v4-5")]
+  Ideogram4p5,
+  #[serde(rename = "recraft-v4")]
+  Recraft4,
+  #[serde(rename = "luma-uni-1-max")]
+  LumaUni1Max,
+  #[serde(rename = "muse-image")]
+  MuseImage,
+  #[serde(rename = "nano-banana-2-1")]
+  NanoBanana2p1,
+  #[serde(rename = "seedream-v5-pro")]
+  Seedream5Pro,
+  #[serde(rename = "qwen-image-3-pro")]
+  QwenImage3Pro,
+  #[serde(rename = "venice-sd35")]
+  VeniceSd35,
+  #[serde(rename = "z-image-turbo")]
+  ZImageTurbo,
   // Generic Midjourney experience, served via the native Midjourney provider.
   #[serde(rename = "midjourney")]
   Midjourney,
