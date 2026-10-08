@@ -23,7 +23,9 @@ pub async fn handle_video_artcraft(
     Some(model) => model,
   };
 
-  let router_model = tauri_video_model_to_router_model(model);
+  let router_model = tauri_video_model_to_router_model(model).ok_or_else(|| {
+    GenerateError::NotYetImplemented(format!("Model {:?} is not supported via this provider yet", model))
+  })?;
   let generation_model = tauri_video_model_to_generation_model(model);
 
   handle_artcraft_video_via_router(request, app_env_configs, &creds, router_model, generation_model).await

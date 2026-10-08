@@ -3,8 +3,11 @@ use artcraft_router::api::router_video_model::RouterVideoModel;
 use crate::core::commands::generate::generate_video::request::TauriVideoModel;
 
 /// Map TauriVideoModel to the artcraft_router's RouterVideoModel.
-pub fn tauri_video_model_to_router_model(model: TauriVideoModel) -> RouterVideoModel {
-  match model {
+///
+/// Newer models (e.g. Wan 3.0, Seedance 2.5) are only served through the Omni
+/// path or BYOK providers, so they have no router counterpart.
+pub fn tauri_video_model_to_router_model(model: TauriVideoModel) -> Option<RouterVideoModel> {
+  let router_model = match model {
     TauriVideoModel::GrokVideo => RouterVideoModel::GrokImagineVideo,
     TauriVideoModel::GrokImagineVideo1p5 => RouterVideoModel::GrokImagineVideo1p5,
     TauriVideoModel::HappyHorse1p0 => RouterVideoModel::HappyHorse1p0,
@@ -26,5 +29,8 @@ pub fn tauri_video_model_to_router_model(model: TauriVideoModel) -> RouterVideoM
     TauriVideoModel::Veo3Fast => RouterVideoModel::Veo3Fast,
     TauriVideoModel::Veo3p1 => RouterVideoModel::Veo3p1,
     TauriVideoModel::Veo3p1Fast => RouterVideoModel::Veo3p1Fast,
-  }
+    TauriVideoModel::Seedance2p5 | TauriVideoModel::Wan3p0 | TauriVideoModel::Wan3p0Prime | TauriVideoModel::ViduQ3 | TauriVideoModel::MinimaxH3 | TauriVideoModel::Flux3 => return None,
+  };
+
+  Some(router_model)
 }

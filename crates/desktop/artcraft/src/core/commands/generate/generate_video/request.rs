@@ -60,6 +60,24 @@ pub enum TauriVideoModel {
   #[serde(rename = "seedance_2p0_fast")]
   Seedance2p0Fast,
 
+  #[serde(rename = "seedance_2p5")]
+  Seedance2p5,
+
+  #[serde(rename = "wan_3p0")]
+  Wan3p0,
+
+  #[serde(rename = "wan_3p0_prime")]
+  Wan3p0Prime,
+
+  #[serde(rename = "vidu_q3")]
+  ViduQ3,
+
+  #[serde(rename = "minimax_h3")]
+  MinimaxH3,
+
+  #[serde(rename = "flux_3")]
+  Flux3,
+
   #[serde(rename = "sora_2")]
   Sora2,
 
