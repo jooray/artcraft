@@ -27,7 +27,7 @@ import { useDesktopUsername } from "~/components/generation-feed/useDesktopUsern
 import { DesktopCreatePageShell } from "~/components/generation-feed/DesktopCreatePageShell";
 import { DesktopGenerationGallery } from "~/components/generation-feed/DesktopGenerationGallery";
 import { isVeniceAudioModel, withVeniceAudioModels } from "./veniceAudioModels";
-import { mergeAudioGalleryItems, useLocalCompletedAudioTasks } from "./useLocalCompletedAudioTasks";
+import { mergeUniqueGalleryItems, useLocalCompletedTasks } from "~/components/generation-feed/useLocalCompletedTasks";
 
 const AUDIO_FILTER = [FilterMediaClasses.AUDIO];
 
@@ -115,9 +115,9 @@ const CreateAudio = () => {
 
   // Venice BYOK results (uploaded or saved locally) live in the local task
   // database, not in the backend jobs feed.
-  const localCompletedItems = useLocalCompletedAudioTasks();
+  const localCompletedItems = useLocalCompletedTasks({ mediaClasses: ["audio"] });
   const mergedGalleryItems = useMemo(
-    () => mergeAudioGalleryItems(gallery.items, localCompletedItems),
+    () => mergeUniqueGalleryItems(gallery.items, localCompletedItems),
     [gallery.items, localCompletedItems],
   );
 

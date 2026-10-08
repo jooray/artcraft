@@ -317,6 +317,9 @@ interface GalleryModalProps {
     onGenerationComplete: () => void;
     onMediaDeleted: (mediaId: string) => void;
   }) => () => void;
+  /** Completed generations from the local task database (local-first library;
+   *  works without an ArtCraft account). Merged with cloud items by token. */
+  localItems?: GalleryItem[];
 }
 
 // --- Constants (never re-created) ---
@@ -597,6 +600,7 @@ export const GalleryModal = React.memo(
     hideFilter,
     onDeleteMedia,
     subscribeToMediaEvents,
+    localItems,
   }: GalleryModalProps) => {
     const [loading, setLoading] = useState(false);
     // Separate state for pagination spinner (bottom of list) — not shared with background refresh
@@ -616,6 +620,19 @@ export const GalleryModal = React.memo(
     const [username, setUsername] = useState<string>("");
     const [usernameError, setUsernameError] = useState(false);
     const [usernameRetryCount, setUsernameRetryCount] = useState(0);
+
+    // Local-first: merge generations completed on this machine into the
+    // library so it works without an ArtCraft account. Re-runs on account
+    // switches (the username effect above wipes the list first).
+    useEffect(() => {
+      if (!localItems || localItems.length === 0) return;
+      setAllItems((prev) => {
+        const existingIds = new Set(prev.map((item) => item.id));
+        const fresh = localItems.filter((item) => !existingIds.has(item.id));
+        if (fresh.length === 0) return prev;
+        return [...fresh, ...prev];
+      });
+    }, [localItems, username]);
     const [activeFilter, setActiveFilter] = useState(forceFilter || "all");
     const minColumns = 3;
     const maxColumns = 12;
@@ -1188,6 +1205,9 @@ export const GalleryModal = React.memo(
                 );
                 const updated = prev
                   .map((it) => {
+                    // Local-first items (saved on this machine) are never in
+                    // the cloud window; keep them.
+                    if (it.isLocalTask) return it;
                     const fresh = freshMap.get(it.id);
                     if (fresh) return fresh;
                     // Not in fresh window but older — came from a later

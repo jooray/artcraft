@@ -43,6 +43,7 @@ import {
 } from "@storyteller/ui-generation-list";
 import { useDesktopGenerationFeed } from "~/components/generation-feed/useDesktopGenerationFeed";
 import { useDesktopUsername } from "~/components/generation-feed/useDesktopUsername";
+import { useLocalFirstGalleryItems } from "~/components/generation-feed/useLocalCompletedTasks";
 import { DesktopCreatePageShell } from "~/components/generation-feed/DesktopCreatePageShell";
 import { DesktopGenerationGallery } from "~/components/generation-feed/DesktopGenerationGallery";
 
@@ -117,6 +118,9 @@ const ImageToVideo = ({ imageMediaId, imageUrl }: ImageToVideoProps) => {
     filterMediaClasses: VIDEO_FILTER,
     excludeUploads: true,
   });
+  // Local-first: generations completed on this machine (including Venice
+  // BYOK results saved locally) show even without an ArtCraft account.
+  const galleryItems = useLocalFirstGalleryItems(gallery.items, ["video"]);
 
   // Content only — while the gallery is still loading the shell keeps the
   // hero + background up as a splash and fades them out when items land.
@@ -124,7 +128,7 @@ const ImageToVideo = ({ imageMediaId, imageUrl }: ImageToVideoProps) => {
     feed.inProgress.length > 0 ||
     feed.failed.length > 0 ||
     feed.newlyCompleted.length > 0 ||
-    gallery.items.length > 0;
+    galleryItems.length > 0;
 
   const newlyCompletedTokens = useMemo(
     () => new Set(feed.newlyCompleted.map((item) => item.id)),
@@ -141,7 +145,7 @@ const ImageToVideo = ({ imageMediaId, imageUrl }: ImageToVideoProps) => {
         merged.push(item);
       }
     }
-    for (const item of gallery.items) {
+    for (const item of galleryItems) {
       if (!seen.has(item.id)) {
         seen.add(item.id);
         merged.push(item);
@@ -152,7 +156,7 @@ const ImageToVideo = ({ imageMediaId, imageUrl }: ImageToVideoProps) => {
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
     return merged;
-  }, [feed.newlyCompleted, gallery.items]);
+  }, [feed.newlyCompleted, galleryItems]);
 
   const flatCompletedRef = useRef(flatCompleted);
   flatCompletedRef.current = flatCompleted;
@@ -195,7 +199,7 @@ const ImageToVideo = ({ imageMediaId, imageUrl }: ImageToVideoProps) => {
           failedJobs={feed.failed}
           onDismissFailed={feed.dismissFailed}
           newlyCompletedItems={feed.newlyCompleted}
-          galleryItems={gallery.items}
+          galleryItems={galleryItems}
           newlyCompletedTokens={newlyCompletedTokens}
           hasMore={gallery.hasMore}
           isLoading={gallery.isLoading}

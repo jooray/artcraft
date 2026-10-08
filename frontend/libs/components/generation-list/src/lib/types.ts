@@ -55,6 +55,8 @@ export interface GalleryItem {
   promptToken?: string;
   // Playback length for audio (and video) items, when the API knows it.
   durationMillis?: number;
+  /** Completed generation from the local task database (no cloud counterpart). */
+  isLocalTask?: boolean;
 }
 
 export interface InProgressJob {

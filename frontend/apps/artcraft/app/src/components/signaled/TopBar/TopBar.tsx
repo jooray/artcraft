@@ -42,6 +42,7 @@ import {
 import { SettingsModal } from "@storyteller/ui-settings-modal";
 import { Tooltip } from "@storyteller/ui-tooltip";
 import { Fragment, useEffect, useRef, useState } from "react";
+import { useLocalCompletedTasks } from "~/components/generation-feed/useLocalCompletedTasks";
 import { APP_DESCRIPTORS, goToApp } from "~/config/appMenu";
 import {
   applyMakeVideoFromImage,
@@ -189,6 +190,10 @@ export const TopBar = ({ pageName }: Props) => {
   const { isDesktop, isMaximized, minimize, toggleMaximize, close } =
     useTauriWindowControls();
   const platform = useTauriPlatform();
+
+  // Local-first library: generations completed on this machine (including
+  // Venice BYOK results) show in the gallery even without an account.
+  const localLibraryItems = useLocalCompletedTasks();
 
   const handleOpenGalleryModal = () => {
     galleryModalVisibleViewMode.value = true;
@@ -712,6 +717,7 @@ export const TopBar = ({ pageName }: Props) => {
         onRecreateClicked={handleRecreateFromGallery}
         onDeleteMedia={galleryModalDeleteMedia}
         subscribeToMediaEvents={galleryModalSubscribeToMediaEvents}
+        localItems={localLibraryItems}
       />
 
       <ProviderSetupModal />
