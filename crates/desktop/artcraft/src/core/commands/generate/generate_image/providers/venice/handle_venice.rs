@@ -43,14 +43,18 @@ use crate::services::storyteller::state::storyteller_credential_manager::Storyte
 pub async fn handle_venice_enqueue(request: &TauriGenerateImageRequest, app: &AppHandle, app_env_configs: &AppEnvConfigs, task_database: &TaskDatabase, storyteller_creds_manager: &StorytellerCredentialManager, credential_cache: &ProviderCredentialLoadingCache) -> Result<(), GenerateError> {
   let api_key = load_venice_api_key(credential_cache)?;
 
-  // The results are uploaded to the user's ArtCraft library, so a logged-in
-  // account is required — fail fast, before the user's Venice credits are spent.
-  if storyteller_creds_manager.get_credentials().ok().flatten().is_none() {
-    return Err(GenerateError::needs_storyteller_credentials());
-  }
+  // Logged in: upload results to the user's ArtCraft library. Logged out: save
+  // them locally — Venice generation never requires an ArtCraft account.
+  let use_library_upload = storyteller_creds_manager.get_credentials().ok().flatten().is_some();
 
   let prepared = prepare_venice_request(request)?;
-  let maybe_prompt_token = create_prompt_record(request, prepared.tauri_model, app_env_configs, storyteller_creds_manager).await;
+
+  let maybe_prompt_token = if use_library_upload {
+    create_prompt_record(request, prepared.tauri_model, app_env_configs, storyteller_creds_manager).await
+  } else {
+    info!("[Venice] No Storyteller credentials; results will be saved locally");
+    None
+  };
 
   let success = TaskEnqueueSuccess { task_type: TaskType::ImageGeneration, model: Some(tauri_image_model_to_generation_model(prepared.tauri_model)), provider: GenerationProvider::Venice, provider_job_id: None, maybe_queue_status_url: None, maybe_queue_response_url: None, maybe_prompt_token: maybe_prompt_token.clone() };
 
@@ -62,7 +66,7 @@ pub async fn handle_venice_enqueue(request: &TauriGenerateImageRequest, app: &Ap
   GenerationEnqueueSuccessEvent { action: success.to_frontend_event_action(), service: success.to_frontend_event_service(), model: success.model.clone() }.send_infallible(app);
   CreditsBalanceChangedEvent {}.send_infallible(app);
 
-  let job = VeniceGenerationJob { api_key, venice_request: prepared.venice_request, maybe_prompt_token, task };
+  let job = VeniceGenerationJob { api_key, venice_request: prepared.venice_request, maybe_prompt_token, task, use_library_upload };
 
   let app_handle = app.clone();
   let app_env_configs = app_env_configs.clone();
@@ -82,6 +86,7 @@ struct VeniceGenerationJob {
   venice_request: VeniceGenerateImageRequest,
   maybe_prompt_token: Option<PromptToken>,
   task: Task,
+  use_library_upload: bool,
 }
 
 async fn run_venice_generation(app: &AppHandle, app_env_configs: &AppEnvConfigs, storyteller_creds_manager: &StorytellerCredentialManager, task_database: &TaskDatabase, job: &VeniceGenerationJob) {
@@ -108,7 +113,7 @@ async fn generate_and_complete(app: &AppHandle, app_env_configs: &AppEnvConfigs,
   let app_data_root = app.state::<AppDataRoot>();
   let media_file_paths = save_images_to_temp_files(&response.images, &app_data_root)?;
 
-  complete_venice_task(app, app_env_configs, task_database, storyteller_creds_manager, &job.task, job.maybe_prompt_token.as_ref(), &media_file_paths).await
+  complete_venice_task(app, app_env_configs, task_database, storyteller_creds_manager, &job.task, job.maybe_prompt_token.as_ref(), &media_file_paths, job.use_library_upload).await
 }
 
 // ── Helpers ──
