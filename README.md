@@ -65,7 +65,7 @@ More previews are coming for image inpainting and image ingredients.
 | Midjourney   | Midjourney image generation.                                                                    |
 | Sora         | Sora 1, Sora 2, and GPT Image 1.                                                                |
 | World Labs   | Marble world generation with Gaussian splats.                                                   |
-| Venice.ai    | BYOK: use your own Venice.ai API key for Nano Banana 2/Pro, GPT Image, and Seedream models.     |
+| Venice.ai    | BYOK: images, image edits, video, and music/sound with your own Venice.ai API key.              |
 
 <details>
 <summary><strong>ArtCraft: the full 62-model catalog</strong></summary>
