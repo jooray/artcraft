@@ -22,6 +22,9 @@ export function useVideoCostEstimate(
   const setEstimatedCreditsForPage = useCostBreakdownModalStore(
     (s) => s.setEstimatedCreditsForPage,
   );
+  const setEstimatedUsdCentsForPage = useCostBreakdownModalStore(
+    (s) => s.setEstimatedUsdCentsForPage,
+  );
 
   const duration = usePromptVideoStore((s) => s.duration);
   const aspectRatio = usePromptVideoStore((s) => s.aspectRatio);
@@ -63,6 +66,7 @@ export function useVideoCostEstimate(
     let cancelled = false;
     setIsLoading(true);
     setEstimatedCreditsForPage(ModelPage.ImageToVideo, null);
+    setEstimatedUsdCentsForPage(ModelPage.ImageToVideo, null);
 
     EstimateVideoCost({
       model: videoModel.tauriId,
@@ -93,13 +97,16 @@ export function useVideoCostEstimate(
           const count = resolveVideoGenerationCount(videoModel, generationCount);
           const credits = unitCredits == null ? null : unitCredits * count;
           setEstimatedCreditsForPage(ModelPage.ImageToVideo, credits);
+          setEstimatedUsdCentsForPage(ModelPage.ImageToVideo, result.payload.cost_in_usd_cents ?? null);
         } else {
           setEstimatedCreditsForPage(ModelPage.ImageToVideo, null);
+          setEstimatedUsdCentsForPage(ModelPage.ImageToVideo, null);
         }
       })
       .catch(() => {
         if (cancelled) return;
         setEstimatedCreditsForPage(ModelPage.ImageToVideo, null);
+        setEstimatedUsdCentsForPage(ModelPage.ImageToVideo, null);
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);

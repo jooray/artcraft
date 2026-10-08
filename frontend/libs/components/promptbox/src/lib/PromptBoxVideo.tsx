@@ -104,6 +104,8 @@ interface PromptBoxVideoProps {
   uploadVideo?: UploadImageFn;
   uploadAudio?: UploadImageFn;
   credits?: number | null;
+  /** BYOK providers report a real USD estimate (in cents) instead of credits. */
+  costUsdCents?: number | null;
   /** Optional model-picker slot rendered at the start of the toolbar
    *  (left of the aspect-ratio picker). */
   modelSelector?: React.ReactNode;
@@ -120,6 +122,7 @@ export const PromptBoxVideo = ({
   uploadVideo,
   uploadAudio,
   credits,
+  costUsdCents,
   modelSelector,
 }: PromptBoxVideoProps) => {
   useSignals();
@@ -1575,6 +1578,7 @@ export const PromptBoxVideo = ({
                     disabled={!prompt.trim()}
                     loading={isEnqueueing}
                     credits={credits}
+                    costUsdCents={costUsdCents}
                   />
                 </div>
               </Tooltip>

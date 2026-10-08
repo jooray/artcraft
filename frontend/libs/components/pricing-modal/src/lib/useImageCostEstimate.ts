@@ -36,6 +36,9 @@ export function useImageCostEstimate(
   const setEstimatedCreditsForPage = useCostBreakdownModalStore(
     (s) => s.setEstimatedCreditsForPage,
   );
+  const setEstimatedUsdCentsForPage = useCostBreakdownModalStore(
+    (s) => s.setEstimatedUsdCentsForPage,
+  );
 
   // TextToImage store
   const imageAspectRatio = usePromptImageStore((s) => s.commonAspectRatio);
@@ -125,6 +128,7 @@ export function useImageCostEstimate(
     let cancelled = false;
     setIsLoading(true);
     setEstimatedCreditsForPage(activePage, null);
+    setEstimatedUsdCentsForPage(activePage, null);
 
     EstimateImageCost({
       model: selectedModel.tauriId,
@@ -140,13 +144,16 @@ export function useImageCostEstimate(
         if (cancelled) return;
         if (isEstimateImageCostSuccess(result)) {
           setEstimatedCreditsForPage(activePage, result.payload.cost_in_credits ?? null);
+          setEstimatedUsdCentsForPage(activePage, result.payload.cost_in_usd_cents ?? null);
         } else {
           setEstimatedCreditsForPage(activePage, null);
+          setEstimatedUsdCentsForPage(activePage, null);
         }
       })
       .catch(() => {
         if (cancelled) return;
         setEstimatedCreditsForPage(activePage, null);
+        setEstimatedUsdCentsForPage(activePage, null);
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);

@@ -71,6 +71,9 @@ const ImageToVideo = ({ imageMediaId, imageUrl }: ImageToVideoProps) => {
   const videoCredits = useCostBreakdownModalStore(
     (s) => s.estimatedCreditsByPage[PAGE_ID],
   );
+  const videoCostUsdCents = useCostBreakdownModalStore(
+    (s) => s.estimatedUsdCentsByPage[PAGE_ID],
+  );
 
   const jobContext: JobContextType = {
     jobTokens: [],
@@ -218,6 +221,7 @@ const ImageToVideo = ({ imageMediaId, imageUrl }: ImageToVideoProps) => {
                 uploadVideo={UploadVideoMedia}
                 uploadAudio={UploadAudioMedia}
                 credits={videoCredits}
+                costUsdCents={videoCostUsdCents}
                 modelSelector={
                   <ClassyModelSelector
                     variant="embedded"

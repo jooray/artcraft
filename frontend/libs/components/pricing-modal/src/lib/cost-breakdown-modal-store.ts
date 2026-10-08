@@ -11,6 +11,15 @@ interface CostBreakdownModalState {
     page: ModelPage,
     credits: number | null,
   ) => void;
+  /**
+   * Estimated cost in USD cents for BYOK providers (Venice). Null/absent for
+   * ArtCraft-managed generations, which are priced in credits.
+   */
+  estimatedUsdCentsByPage: Partial<Record<ModelPage, number | null>>;
+  setEstimatedUsdCentsForPage: (
+    page: ModelPage,
+    usdCents: number | null,
+  ) => void;
 }
 
 export const useCostBreakdownModalStore = create<CostBreakdownModalState>(
@@ -25,6 +34,14 @@ export const useCostBreakdownModalStore = create<CostBreakdownModalState>(
         estimatedCreditsByPage: {
           ...state.estimatedCreditsByPage,
           [page]: credits,
+        },
+      })),
+    estimatedUsdCentsByPage: {},
+    setEstimatedUsdCentsForPage: (page, usdCents) =>
+      set((state) => ({
+        estimatedUsdCentsByPage: {
+          ...state.estimatedUsdCentsByPage,
+          [page]: usdCents,
         },
       })),
   }),

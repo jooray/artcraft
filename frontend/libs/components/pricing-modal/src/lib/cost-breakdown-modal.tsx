@@ -62,7 +62,7 @@ export interface CostBreakdownModalProps {
 }
 
 export function CostBreakdownModal({ activeTabId }: CostBreakdownModalProps) {
-  const { isOpen, closeModal, estimatedCreditsByPage } =
+  const { isOpen, closeModal, estimatedCreditsByPage, estimatedUsdCentsByPage } =
     useCostBreakdownModalStore();
   const {
     currency,
@@ -226,14 +226,20 @@ export function CostBreakdownModal({ activeTabId }: CostBreakdownModalProps) {
   const liveCredits = isLiveEstimatePage
     ? (estimatedCreditsByPage[activePage] ?? null)
     : null;
+  // BYOK providers (Venice) report a real USD estimate instead of credits.
+  const liveUsdCents = isLiveEstimatePage
+    ? (estimatedUsdCentsByPage[activePage] ?? null)
+    : null;
+  const isByokUsdEstimate = liveUsdCents != null && (liveCredits ?? 0) === 0;
 
   const creditsPerGeneration = 1;
   const totalCredits = isLiveEstimatePage
     ? liveCredits
     : creditsPerGeneration * storeData.generationCount;
 
-  // Convert credits to USD first (1 credit = $0.01), then to selected currency
-  const usdAmount = (totalCredits ?? 0) * 0.01;
+  // BYOK USD estimates win; otherwise convert credits to USD (1 credit = $0.01).
+  const usdAmount =
+    liveUsdCents != null ? liveUsdCents / 100 : (totalCredits ?? 0) * 0.01;
   const formattedPrice = formatPrice(usdAmount);
 
   // Select options formatted for the Select component
@@ -399,6 +405,10 @@ export function CostBreakdownModal({ activeTabId }: CostBreakdownModalProps) {
                         Calculating…
                       </span>
                     </>
+                  ) : isByokUsdEstimate ? (
+                    <span className="text-base-fg/50 text-sm">
+                      None — paid on your provider account
+                    </span>
                   ) : totalCredits != null ? (
                     <>
                       {totalCredits} {totalCredits === 1 ? "Credit" : "Credits"}

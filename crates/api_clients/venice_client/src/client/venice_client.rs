@@ -7,14 +7,19 @@ use crate::creds::venice_api_key::VeniceApiKey;
 use crate::error::venice_error::VeniceError;
 use crate::requests::audio::queue_audio_request::VeniceQueueAudioRequest;
 use crate::requests::audio::queue_audio_response::VeniceQueueAudioResponse;
+use crate::requests::audio::quote_audio::VeniceQuoteAudioRequest;
+use crate::requests::audio::quote_audio::VeniceQuoteAudioResponse;
 use crate::requests::audio::retrieve_audio_request::VeniceRetrieveAudioRequest;
 use crate::requests::audio::retrieve_audio_response::{VeniceAudioRetrieveResponse, VeniceAudioRetrieveStatus};
 use crate::requests::edit_image::edit_image_request::VeniceEditImageRequest;
 use crate::requests::edit_image::multi_edit_request::VeniceMultiEditImageRequest;
 use crate::requests::generate_image::generate_image_request::VeniceGenerateImageRequest;
 use crate::requests::generate_image::generate_image_response::VeniceGenerateImageResponse;
+use crate::requests::models::list_models::VeniceModelsResponse;
 use crate::requests::video::queue_video_request::VeniceQueueVideoRequest;
 use crate::requests::video::queue_video_response::VeniceQueueVideoResponse;
+use crate::requests::video::quote_video::VeniceQuoteVideoRequest;
+use crate::requests::video::quote_video::VeniceQuoteVideoResponse;
 use crate::requests::video::retrieve_video_request::VeniceRetrieveVideoRequest;
 use crate::requests::video::retrieve_video_response::{VeniceVideoRetrieveResponse, VeniceVideoRetrieveStatus};
 
@@ -139,7 +144,40 @@ impl VeniceClient {
     Ok(bytes.to_vec())
   }
 
+  /// `GET /models?type=image`: image models with their pricing metadata.
+  pub async fn list_image_models(&self) -> Result<VeniceModelsResponse, VeniceError> {
+    self.get_json("/models?type=image").await
+  }
+
+  /// `POST /video/quote`: estimated USD price for a video generation.
+  pub async fn quote_video(&self, request: &VeniceQuoteVideoRequest) -> Result<VeniceQuoteVideoResponse, VeniceError> {
+    self.post_json("/video/quote", request).await
+  }
+
+  /// `POST /audio/quote`: estimated USD price for an audio generation.
+  pub async fn quote_audio(&self, request: &VeniceQuoteAudioRequest) -> Result<VeniceQuoteAudioResponse, VeniceError> {
+    self.post_json("/audio/quote", request).await
+  }
+
   // ── Helpers ──
+
+  async fn get_json<TResponse>(&self, path: &str) -> Result<TResponse, VeniceError>
+  where
+    TResponse: DeserializeOwned,
+  {
+    let url = format!("{}{}", VENICE_API_BASE_URL, path);
+
+    let response = self.http.get(&url).bearer_auth(self.api_key.as_str()).send().await?;
+
+    let status = response.status();
+    let body = response.text().await?;
+
+    if !status.is_success() {
+      return Err(VeniceError::Api { status, message: extract_error_message(&body) });
+    }
+
+    Ok(serde_json::from_str(&body)?)
+  }
 
   /// POST an edit request and return the edited image bytes. Handles both the
   /// documented binary response and (defensively) base64 JSON responses.

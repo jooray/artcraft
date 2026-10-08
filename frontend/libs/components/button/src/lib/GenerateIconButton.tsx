@@ -9,6 +9,8 @@ interface GenerateIconButtonProps extends Omit<
   "children"
 > {
   credits?: number | null;
+  /** BYOK providers report a real USD estimate (in cents) instead of credits. */
+  costUsdCents?: number | null;
   loading?: boolean;
 }
 
@@ -19,6 +21,7 @@ interface GenerateIconButtonProps extends Omit<
  */
 export const GenerateIconButton = ({
   credits,
+  costUsdCents,
   loading,
   className,
   disabled,
@@ -26,11 +29,21 @@ export const GenerateIconButton = ({
 }: GenerateIconButtonProps) => {
   const isDisabled = disabled || loading;
 
+  const hasUsdEstimate = costUsdCents != null;
+  const label = hasUsdEstimate
+    ? `$${(costUsdCents / 100).toFixed(2)}`
+    : credits;
+  const tooltip = hasUsdEstimate
+    ? `Estimated ${label} on your provider account`
+    : credits != null
+      ? `${credits} credit${credits !== 1 ? "s" : ""} cost`
+      : null;
+
   return (
     <div className={twMerge("flex shrink-0 items-center gap-2.5", className)}>
-      {credits != null && (
+      {label != null && tooltip && (
         <Tooltip
-          content={`${credits} credit${credits !== 1 ? "s" : ""} cost`}
+          content={tooltip}
           position="top"
           className="z-50"
         >
@@ -40,8 +53,8 @@ export const GenerateIconButton = ({
               isDisabled && "opacity-50",
             )}
           >
-            <CoinsIcon  className="text-xs" />
-            {credits}
+            {!hasUsdEstimate && <CoinsIcon className="text-xs" />}
+            {label}
           </span>
         </Tooltip>
       )}

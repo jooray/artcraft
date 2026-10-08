@@ -59,6 +59,8 @@ interface PromptBoxImageProps {
   url?: string;
   onImageRowVisibilityChange?: (visible: boolean) => void;
   credits?: number | null;
+  /** BYOK providers report a real USD estimate (in cents) instead of credits. */
+  costUsdCents?: number | null;
   /** Optional model-picker slot rendered at the start of the toolbar
    *  (left of the aspect-ratio picker). */
   modelSelector?: ReactNode;
@@ -73,6 +75,7 @@ export const PromptBoxImage = ({
   imageMediaId,
   url,
   credits,
+  costUsdCents,
   modelSelector,
 }: PromptBoxImageProps) => {
   useSignals();
@@ -584,6 +587,7 @@ export const PromptBoxImage = ({
                 disabled={!prompt.trim()}
                 loading={isEnqueueing}
                 credits={isDirectMidjourney ? 0 : credits}
+                costUsdCents={isDirectMidjourney ? null : costUsdCents}
               />
             </div>
           </div>

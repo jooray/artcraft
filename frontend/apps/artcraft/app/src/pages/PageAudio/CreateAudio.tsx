@@ -1,5 +1,5 @@
 import { GenerateAudio, EstimateAudioCost } from "@storyteller/tauri-api";
-import type { OmniGenAudioRequest } from "@storyteller/api";
+import type { OmniGenAudioCostResponse, OmniGenAudioRequest } from "@storyteller/api";
 import { GenerationProvider } from "@storyteller/api-enums";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PromptBoxAudio, usePromptAudioStore } from "@storyteller/ui-promptbox";
@@ -74,6 +74,15 @@ const CreateAudio = () => {
       models[0],
     [models, selectedModelId],
   );
+  // BYOK providers (Venice) report a real USD estimate instead of credits.
+  const [audioCostUsdCents, setAudioCostUsdCents] = useState<number | null>(null);
+  const handleAudioEstimate = useCallback(
+    (response: OmniGenAudioCostResponse | null) => {
+      setAudioCostUsdCents(response?.cost_in_usd_cents ?? null);
+    },
+    [],
+  );
+
   const audioCredits = useAudioCostEstimate({
     model: selectedModel?.model ?? "",
     audioReferenceCount: referenceAudios.length,
@@ -81,7 +90,7 @@ const CreateAudio = () => {
     sampleRateHz: selectedModel?.sample_rate_hz_options?.length
       ? (selectedModel.sample_rate_hz_default ?? undefined)
       : undefined,
-  }, estimateAudioWithProvider);
+  }, estimateAudioWithProvider, handleAudioEstimate);
 
   // Track the promptbox height so the feed can pad past it.
   useEffect(() => {
@@ -208,6 +217,7 @@ const CreateAudio = () => {
               uploadAudio={UploadAudioMedia}
               uploadImage={UploadImageMedia}
               credits={audioCredits}
+              costUsdCents={audioCostUsdCents}
               onEnqueuePressed={async () => {
                 // Nudge the shared jobs poller so the pending cards appear
                 // immediately (one per created job token).

@@ -58,6 +58,9 @@ const TextToImage = ({ imageMediaId, imageUrl }: TextToImageProps) => {
   const imageCredits = useCostBreakdownModalStore(
     (s) => s.estimatedCreditsByPage[PAGE_ID],
   );
+  const imageCostUsdCents = useCostBreakdownModalStore(
+    (s) => s.estimatedUsdCentsByPage[PAGE_ID],
+  );
 
   const jobContext: JobContextType = {
     jobTokens: [],
@@ -190,6 +193,7 @@ const TextToImage = ({ imageMediaId, imageUrl }: TextToImageProps) => {
               imageMediaId={imageMediaId}
               url={imageUrl ?? undefined}
               credits={imageCredits}
+              costUsdCents={imageCostUsdCents}
               modelSelector={
                 <ClassyModelSelector
                   variant="embedded"

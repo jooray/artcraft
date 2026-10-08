@@ -75,6 +75,8 @@ interface PromptBoxAudioProps {
   // request can create several Suno clips).
   onEnqueuePressed?: (jobTokens: string[]) => void | Promise<void>;
   credits?: number | null;
+  /** BYOK providers report a real USD estimate (in cents) instead of credits. */
+  costUsdCents?: number | null;
 }
 
 export const PromptBoxAudio = ({
@@ -84,6 +86,7 @@ export const PromptBoxAudio = ({
   uploadImage,
   onEnqueuePressed,
   credits,
+  costUsdCents,
 }: PromptBoxAudioProps) => {
   const prompt = usePromptAudioStore((s) => s.prompt);
   const setPrompt = usePromptAudioStore((s) => s.setPrompt);
@@ -608,6 +611,7 @@ export const PromptBoxAudio = ({
                 disabled={!prompt.trim() || missingRequiredAudioRef}
                 loading={isEnqueueing}
                 credits={credits}
+                costUsdCents={costUsdCents}
               />
             </div>
           </div>

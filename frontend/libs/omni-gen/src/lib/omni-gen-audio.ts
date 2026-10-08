@@ -151,6 +151,8 @@ const estimateAudioOverHttp = (body: OmniGenAudioRequest) => new OmniGenApi().es
 export function useAudioCostEstimate(
   params: AudioCostParams,
   estimate: (body: OmniGenAudioRequest) => Promise<OmniGenAudioCostResponse> = estimateAudioOverHttp,
+  /** Optional observer for BYOK estimates (e.g. Venice USD costs). */
+  onEstimate?: (response: OmniGenAudioCostResponse | null) => void,
 ): number | null {
   const [credits, setCredits] = useState<number | null>(null);
   const abortRef = useRef(0);
@@ -174,6 +176,7 @@ export function useAudioCostEstimate(
     estimate(body).then(
       (response) => {
         if (id !== abortRef.current) return;
+        onEstimate?.(response);
         if (response.success && response.cost_in_credits != null) {
           setCredits(response.cost_in_credits);
         } else {
@@ -182,12 +185,14 @@ export function useAudioCostEstimate(
       },
       () => {
         if (id !== abortRef.current) return;
+        onEstimate?.(null);
         setCredits(null);
       },
     );
     return () => { abortRef.current++; };
   }, [
     estimate,
+    onEstimate,
     params.model,
     params.audioReferenceCount,
     params.hasImageReference,
