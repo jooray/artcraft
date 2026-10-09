@@ -1,13 +1,10 @@
 use enums::common::generation::common_quality::CommonQuality;
 use enums::common::generation::common_resolution::CommonResolution;
 use enums::common::generation_provider::GenerationProvider;
-use log::warn;
 use serde_json::Value;
 use tauri::{AppHandle, Manager};
-use venice_client::client::venice_client::VeniceClient;
-use venice_client::creds::venice_api_key::VeniceApiKey;
 
-use crate::core::commands::generate::generate_image::providers::venice::venice_image_model::{map_quality, map_resolution, venice_model_spec, venice_supports_model_id};
+use crate::core::commands::generate::generate_image::providers::venice::venice_image_model::{map_quality, map_resolution, venice_model_spec};
 use crate::core::commands::generate::generate_image::providers::venice::venice_pricing::{estimate_image_cost_usd, usd_to_cents, venice_estimate_client, zero_credits_json};
 use crate::core::commands::generate::generate_image::tauri_image_model::TauriImageModel;
 use crate::core::commands::generate::omni::OmniResponse;
@@ -22,7 +19,7 @@ use artcraft_api_defs::generate::cost_estimate::estimate_image_cost::{
   EstimateImageCostResponse,
 };
 use artcraft_client::endpoints::generate::cost_estimate::image::estimate_image_cost::estimate_image_cost;
-use log::{debug, info};
+use log::debug;
 use tauri::State;
 
 impl SerializeMarker for EstimateImageCostResponse {}
@@ -47,16 +44,9 @@ pub async fn estimate_image_cost_command(request: OmniRequest, app: AppHandle) -
   }
   if matches!(request.provider, Some(GenerationProvider::Venice)) {
     let model_id = request.model().unwrap_or_default().to_string();
-    if !venice_supports_model_id(&model_id) {
-      return Err(CommandErrorResponseWrapper {
-        status: CommandErrorStatus::BadRequest,
-        error_message: Some("This model cannot use a Venice account".to_string()),
-        error_type: Some("invalid_provider_for_model".to_string()),
-        error_details: None,
-      });
-    }
     // No ArtCraft credits are used; report the estimated USD cost on the
-    // user's Venice account (from the model's Venice pricing metadata).
+    // user's Venice account (from the model's Venice pricing metadata). Both
+    // compiled models and runtime catalog ids price through their Venice id.
     let estimate = venice_image_estimate(&request, &app, &model_id).await;
     return Ok(OmniResponse(estimate).into());
   }
@@ -98,19 +88,19 @@ async fn venice_image_estimate(request: &OmniRequest, app: &AppHandle, model_id:
     return zero_credits_json(None);
   };
 
-  let Ok(tauri_model) = serde_json::from_value::<TauriImageModel>(Value::String(model_id.to_string())) else {
-    return zero_credits_json(None);
-  };
-  let Some(spec) = venice_model_spec(tauri_model) else {
-    return zero_credits_json(None);
-  };
-
   // Requests with image inputs are edits and use the edit model's pricing.
   let is_edit = ["image_media_tokens", "canvas_image_media_token", "scene_image_media_token", "canvas_image_raw_bytes", "scene_image_raw_bytes"]
     .iter()
     .any(|field| field_has_any_content(request.fields.get(*field)));
 
-  let venice_model = if is_edit { spec.edit_model.unwrap_or(spec.venice_model) } else { spec.venice_model };
+  // Compiled specs know their Venice ids; runtime catalog ids are used as-is
+  // (pricing still comes from the live model list).
+  let tauri_model: TauriImageModel = serde_json::from_value(Value::String(model_id.to_string())).unwrap_or(TauriImageModel::Unknown);
+  let venice_model: &str = match venice_model_spec(tauri_model) {
+    Some(spec) if is_edit => spec.edit_model.unwrap_or(spec.venice_model),
+    Some(spec) => spec.venice_model,
+    None => model_id,
+  };
 
   let resolution_tier = request.fields.get("resolution").and_then(Value::as_str).and_then(|value| CommonResolution::from_str(value).ok()).and_then(map_resolution);
   let quality = request.fields.get("quality").and_then(Value::as_str).and_then(|value| CommonQuality::from_str(value).ok()).and_then(map_quality);

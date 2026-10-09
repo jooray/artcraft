@@ -197,7 +197,7 @@ fn resolve_video_model_source(request: &TauriGenerateVideoRequest) -> Result<Ven
 
 /// Swap a runtime Venice video id to another workflow variant, when the id
 /// follows the standard `-text-to-video` naming.
-fn swap_video_model_variant(model_id: &str, from: &str, to: &str) -> Option<String> {
+pub(crate) fn swap_video_model_variant(model_id: &str, from: &str, to: &str) -> Option<String> {
   model_id.contains(from).then(|| model_id.replace(from, to))
 }
 

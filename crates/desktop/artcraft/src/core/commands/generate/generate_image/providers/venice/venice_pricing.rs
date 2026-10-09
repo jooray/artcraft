@@ -13,7 +13,7 @@ use venice_client::creds::venice_api_key::VeniceApiKey;
 use venice_client::requests::audio::quote_audio::VeniceQuoteAudioRequest;
 use venice_client::requests::video::quote_video::VeniceQuoteVideoRequest;
 
-use crate::core::commands::generate::generate_video::venice::venice_video_model::{resolve_supported_aspect_ratio, resolve_supported_resolution, VeniceVideoModelSpec};
+use crate::core::commands::generate::generate_video::venice::venice_video_model::{map_aspect_ratio, map_resolution, resolve_supported_aspect_ratio, resolve_supported_resolution, VeniceVideoModelSpec};
 use crate::core::providers::credentials::payload::provider_credential_payload::ProviderCredentialPayload;
 use crate::core::providers::credentials::provider_credential_key::ProviderCredentialKey;
 use crate::core::providers::credentials::provider_credential_loading_cache::ProviderCredentialLoadingCache;
@@ -172,6 +172,25 @@ pub async fn estimate_video_cost_usd(client: &VeniceClient, spec: &VeniceVideoMo
     duration: format!("{}s", duration_seconds),
     resolution: maybe_resolution.and_then(|value| resolve_supported_resolution(value, resolution_options)),
     aspect_ratio: maybe_aspect_ratio.and_then(|value| resolve_supported_aspect_ratio(value, aspect_ratio_options)),
+  };
+
+  match client.quote_video(&request).await {
+    Ok(response) => Some(response.quote),
+    Err(err) => {
+      warn!("[Venice] Video quote failed: {:?}", err);
+      None
+    },
+  }
+}
+
+/// Quote a runtime catalog video model by raw Venice id (no compiled spec).
+/// Values are passed through mapped; Venice validates them.
+pub async fn estimate_video_cost_usd_for_model(client: &VeniceClient, venice_model: &str, duration_seconds: u32, maybe_resolution: Option<RouterResolution>, maybe_aspect_ratio: Option<RouterAspectRatio>) -> Option<f64> {
+  let request = VeniceQuoteVideoRequest {
+    model: venice_model.to_string(),
+    duration: format!("{}s", duration_seconds),
+    resolution: maybe_resolution.and_then(map_resolution).map(str::to_owned),
+    aspect_ratio: maybe_aspect_ratio.and_then(map_aspect_ratio).map(str::to_owned),
   };
 
   match client.quote_video(&request).await {
