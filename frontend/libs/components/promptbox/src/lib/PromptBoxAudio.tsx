@@ -7,7 +7,7 @@ import {
 import { PopoverMenu, PopoverItem } from "@storyteller/ui-popover";
 import { Tooltip } from "@storyteller/ui-tooltip";
 import { GenerateIconButton, ToggleButton } from "@storyteller/ui-button";
-import { ChevronDownIcon, ChevronUpIcon, MicIcon, MicOffIcon, RepeatIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon, AlignLeftIcon, MicIcon, MicOffIcon, RepeatIcon } from "lucide-react";
 import { DynamicIcon } from "@storyteller/icons";
 import type { OmniGenAudioModelDetails, OmniGenAudioRequest, OmniGenAudioGenerateResponse, UploadMediaFn } from "@storyteller/api";
 import {
@@ -47,6 +47,7 @@ import {
 import { AudioTuningPopover } from "./common/AudioTuningPopover";
 import { SoundsSettingsPopover } from "./common/SoundsSettingsPopover";
 import { StylePromptRow } from "./common/StylePromptRow";
+import { LyricsPromptRow } from "./common/LyricsPromptRow";
 
 const DEFAULT_AUDIO_MODEL_ID = "suno_music";
 
@@ -92,6 +93,8 @@ export const PromptBoxAudio = ({
   const setPrompt = usePromptAudioStore((s) => s.setPrompt);
   const stylePrompt = usePromptAudioStore((s) => s.stylePrompt);
   const setStylePrompt = usePromptAudioStore((s) => s.setStylePrompt);
+  const lyrics = usePromptAudioStore((s) => s.lyrics);
+  const setLyrics = usePromptAudioStore((s) => s.setLyrics);
   const selectedModelId = usePromptAudioStore((s) => s.selectedModelId);
   const setSelectedModelId = usePromptAudioStore((s) => s.setSelectedModelId);
   const isInstrumental = usePromptAudioStore((s) => s.isInstrumental);
@@ -119,6 +122,8 @@ export const PromptBoxAudio = ({
 
   const [isEnqueueing, setIsEnqueueing] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  // Lyrics editor visibility for lyric-capable music models.
+  const [lyricsOpen, setLyricsOpen] = useState(false);
   const enterToGenerate = useEnterToGenerateStore((s) => s.enabled);
 
   // Audio library picker (the "From library" button in the reference row).
@@ -153,6 +158,24 @@ export const PromptBoxAudio = ({
   const hasInstrumental = supports(
     selectedModel?.instrumental_toggle_supported,
   );
+  const hasLyrics = supports(selectedModel?.lyrics_prompt_supported);
+  const lyricsRequired = supports(selectedModel?.lyrics_required);
+  const lyricsOptimizer = supports(selectedModel?.lyrics_optimizer_supported);
+  const lyricsLimit = selectedModel?.lyrics_character_limit ?? null;
+  // The lyrics editor appears when opened via the toggle, when the model
+  // requires lyrics, or when lyrics are already typed. Instrumental mode has
+  // no vocals, so it hides lyrics entirely.
+  const showLyricsRow =
+    hasLyrics &&
+    !isInstrumental &&
+    (lyricsOpen || lyricsRequired || lyrics.trim().length > 0);
+  const missingRequiredLyrics =
+    hasLyrics && lyricsRequired && !isInstrumental && !lyrics.trim();
+  const lyricsPlaceholder = lyricsRequired
+    ? "Lyrics (required for this model)…"
+    : lyricsOptimizer
+      ? "Lyrics — leave empty and they are written from your description"
+      : "Lyrics — leave empty to let the model write them";
   const hasKeepLyrics = supports(selectedModel?.keep_lyrics_supported);
   const hasLoopable = supports(selectedModel?.loopable_toggle_supported);
   const hasBpm = supports(selectedModel?.bpm_supported);
@@ -362,11 +385,15 @@ export const PromptBoxAudio = ({
   const hasAttachedRefs =
     referenceAudios.length > 0 || referenceImages.length > 0;
   const hasClearableContent =
-    prompt.length > 0 || stylePrompt.length > 0 || hasAttachedRefs;
+    prompt.length > 0 ||
+    stylePrompt.length > 0 ||
+    lyrics.length > 0 ||
+    hasAttachedRefs;
 
   const handleClearAll = () => {
     setPrompt("");
     setStylePrompt("");
+    setLyrics("");
     setReferenceAudios([]);
     setReferenceImages([]);
   };
@@ -388,6 +415,7 @@ export const PromptBoxAudio = ({
       const settings: AudioGenerationSettings = {
         prompt,
         stylePrompt,
+        lyrics,
         audioMediaTokens: referenceAudios
           .map((audio) => audio.mediaToken)
           .filter((token) => token.length > 0),
@@ -465,6 +493,22 @@ export const PromptBoxAudio = ({
             activeIcon={MicOffIcon}
             label="Instrumental"
             onClick={() => setIsInstrumental(!isInstrumental)}
+          />
+        </Tooltip>
+      )}
+      {hasLyrics && !isInstrumental && (
+        <Tooltip
+          content={lyricsOpen ? "Lyrics: ON" : "Lyrics: OFF"}
+          position="top"
+          className="z-50"
+          delay={200}
+        >
+          <ToggleButton
+            isActive={lyricsOpen || lyricsRequired}
+            icon={AlignLeftIcon}
+            activeIcon={AlignLeftIcon}
+            label="Lyrics"
+            onClick={() => setLyricsOpen(!lyricsOpen)}
           />
         </Tooltip>
       )}
@@ -585,6 +629,15 @@ export const PromptBoxAudio = ({
             </div>
           </div>
 
+          {showLyricsRow && (
+            <LyricsPromptRow
+              value={lyrics}
+              onChange={setLyrics}
+              placeholder={lyricsPlaceholder}
+              maxLength={lyricsLimit}
+            />
+          )}
+
           {styleSupported && (
             <StylePromptRow value={stylePrompt} onChange={setStylePrompt} />
           )}
@@ -601,6 +654,11 @@ export const PromptBoxAudio = ({
                   Audio track required
                 </span>
               )}
+              {missingRequiredLyrics && (
+                <span className="flex animate-pulse items-center gap-1.5 text-xs font-medium text-red-500">
+                  Lyrics required
+                </span>
+              )}
               <PromptClearAllButton
                 onClick={handleClearAll}
                 disabled={!hasClearableContent}
@@ -608,7 +666,7 @@ export const PromptBoxAudio = ({
               />
               <GenerateIconButton
                 onClick={handleEnqueue}
-                disabled={!prompt.trim() || missingRequiredAudioRef}
+                disabled={!prompt.trim() || missingRequiredAudioRef || missingRequiredLyrics}
                 loading={isEnqueueing}
                 credits={credits}
                 costUsdCents={costUsdCents}

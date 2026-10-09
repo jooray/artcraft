@@ -28,6 +28,7 @@ import { DesktopCreatePageShell } from "~/components/generation-feed/DesktopCrea
 import { DesktopGenerationGallery } from "~/components/generation-feed/DesktopGenerationGallery";
 import { isVeniceAudioModel, withVeniceAudioModels } from "./veniceAudioModels";
 import { mergeUniqueGalleryItems, useLocalCompletedTasks } from "~/components/generation-feed/useLocalCompletedTasks";
+import { useConfiguredProviders } from "@storyteller/ui-model-selector";
 
 const AUDIO_FILTER = [FilterMediaClasses.AUDIO];
 
@@ -35,7 +36,19 @@ const CreateAudio = () => {
   const { models: omniAudioModels } = useOmniGenAudioModels();
   // Venice.ai BYOK audio models are desktop-only; the backend listing doesn't
   // know about them.
-  const models = useMemo(() => withVeniceAudioModels(omniAudioModels), [omniAudioModels]);
+  const allModels = useMemo(() => withVeniceAudioModels(omniAudioModels), [omniAudioModels]);
+
+  // Only offer models whose provider is configured (Venice key, or an ArtCraft
+  // session). Nothing configured — show the full catalog for setup discovery.
+  const configuredProviders = useConfiguredProviders();
+  const models = useMemo(() => {
+    if (!configuredProviders || configuredProviders.size === 0) return allModels;
+    return allModels.filter((model) =>
+      isVeniceAudioModel(model.model)
+        ? configuredProviders.has(GenerationProvider.Venice)
+        : configuredProviders.has(GenerationProvider.Artcraft),
+    );
+  }, [allModels, configuredProviders]);
   const promptContentRef = useRef<HTMLDivElement>(null);
   const [promptHeight, setPromptHeight] = useState<number>(138);
 
@@ -68,10 +81,7 @@ const CreateAudio = () => {
   const referenceAudios = usePromptAudioStore((s) => s.referenceAudios);
   const referenceImages = usePromptAudioStore((s) => s.referenceImages);
   const selectedModel = useMemo(
-    () =>
-      models.find((m) => m.model === selectedModelId) ??
-      models.find((m) => m.model === "suno_music") ??
-      models[0],
+    () => models.find((m) => m.model === selectedModelId) ?? models[0],
     [models, selectedModelId],
   );
   // BYOK providers (Venice) report a real USD estimate instead of credits.

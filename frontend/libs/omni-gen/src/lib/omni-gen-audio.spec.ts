@@ -44,6 +44,7 @@ const SEED_AUDIO: OmniGenAudioModelDetails = {
 const BASE_SETTINGS: AudioGenerationSettings = {
   prompt: "a driving synthwave anthem",
   stylePrompt: "dreamy synth-pop, female vocals",
+  lyrics: "",
   audioMediaTokens: ["mf_audio1"],
   imageMediaTokens: ["mf_image1"],
   isInstrumental: true,
@@ -115,6 +116,43 @@ describe("buildAudioRequest capability gating", () => {
     expect(request.keep_lyrics).toBeNull();
     expect(request.is_loopable).toBeNull();
     expect(request.style_prompt).toBeNull();
+  });
+
+  it("sends typed lyrics for lyric-capable Venice music models", () => {
+    const minimax: OmniGenAudioModelDetails = {
+      model: "minimax-music-v26",
+      full_name: "MiniMax Music 2.6",
+      lyrics_prompt_supported: true,
+      instrumental_toggle_supported: true,
+    };
+    const request = buildAudioRequest(minimax, {
+      ...BASE_SETTINGS,
+      lyrics: "Verse 1: a big fat frog...",
+      isInstrumental: false,
+    });
+    expect(request.lyrics).toBe("Verse 1: a big fat frog...");
+  });
+
+  it("never sends lyrics with the instrumental toggle on", () => {
+    const minimax: OmniGenAudioModelDetails = {
+      model: "minimax-music-v26",
+      lyrics_prompt_supported: true,
+      instrumental_toggle_supported: true,
+    };
+    const request = buildAudioRequest(minimax, {
+      ...BASE_SETTINGS,
+      lyrics: "Verse 1: a big fat frog...",
+      isInstrumental: true,
+    });
+    expect(request.lyrics).toBeNull();
+  });
+
+  it("never sends lyrics for models without lyrics support", () => {
+    const request = buildAudioRequest(SEED_AUDIO, {
+      ...BASE_SETTINGS,
+      lyrics: "Verse 1: a big fat frog...",
+    });
+    expect(request.lyrics).toBeNull();
   });
 
   it("omits empty prompts and reference arrays", () => {

@@ -26,6 +26,9 @@ export const AUDIO_MODELS_REQUIRING_AUDIO_REF = new Set([
 export interface AudioGenerationSettings {
   prompt: string;
   stylePrompt: string;
+  // Custom lyrics (Venice music models that accept lyrics). Empty = let the
+  // model write lyrics from the prompt.
+  lyrics: string;
   audioMediaTokens: string[];
   imageMediaTokens: string[];
   isInstrumental: boolean;
@@ -70,6 +73,13 @@ export function buildAudioRequest(
     keep_lyrics: supports(model.keep_lyrics_supported)
       ? settings.keepLyrics
       : null,
+    // Instrumental generations have no vocals, so lyrics never apply.
+    lyrics:
+      supports(model.lyrics_prompt_supported) &&
+      !settings.isInstrumental &&
+      settings.lyrics.trim()
+        ? settings.lyrics.trim()
+        : null,
     is_instrumental: supports(model.instrumental_toggle_supported)
       ? settings.isInstrumental
       : null,

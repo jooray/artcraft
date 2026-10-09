@@ -220,6 +220,9 @@ interface PromptAudioStore {
   prompt: string;
   // Style/genre direction (Suno's "tags").
   stylePrompt: string;
+  // Custom lyrics for lyric-capable Venice music models (empty = the model
+  // writes its own from the prompt when it can).
+  lyrics: string;
   // Model id ("suno_music", ...) — audio models come from the omni HTTP API,
   // not the ClassyModelSelector store.
   selectedModelId: string | null;
@@ -239,6 +242,7 @@ interface PromptAudioStore {
   referenceImages: RefImage[];
   setPrompt: (prompt: string) => void;
   setStylePrompt: (stylePrompt: string) => void;
+  setLyrics: (lyrics: string) => void;
   setSelectedModelId: (modelId: string | null) => void;
   setIsInstrumental: (value: boolean) => void;
   setKeepLyrics: (value: boolean) => void;
@@ -256,6 +260,7 @@ interface PromptAudioStore {
 export const usePromptAudioStore = create<PromptAudioStore>()((set) => ({
   prompt: "",
   stylePrompt: "",
+  lyrics: "",
   selectedModelId: null,
   isInstrumental: false,
   keepLyrics: false,
@@ -270,6 +275,7 @@ export const usePromptAudioStore = create<PromptAudioStore>()((set) => ({
   referenceImages: [],
   setPrompt: (prompt) => set({ prompt }),
   setStylePrompt: (stylePrompt) => set({ stylePrompt }),
+  setLyrics: (lyrics) => set({ lyrics }),
   setSelectedModelId: (selectedModelId) => set({ selectedModelId }),
   setIsInstrumental: (isInstrumental) => set({ isInstrumental }),
   setKeepLyrics: (keepLyrics) => set({ keepLyrics }),

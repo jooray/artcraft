@@ -127,6 +127,8 @@ export interface OmniGenAudioRequest {
   image_media_tokens?: string[] | null;
   // Whether to keep the original lyrics (Suno Remix).
   keep_lyrics?: boolean | null;
+  // Custom lyrics (Venice music models that accept lyrics).
+  lyrics?: string | null;
   // Whether to generate instrumental-only audio (Suno Music / Sample).
   is_instrumental?: boolean | null;
   // Whether the sound should loop vs a single hit (Suno Sounds).
@@ -286,6 +288,15 @@ export interface OmniGenAudioModelDetails {
   instrumental_toggle_supported?: boolean | null;
   // Whether the loop vs single-hit toggle is supported (Suno Sounds).
   loopable_toggle_supported?: boolean | null;
+  // Venice music: whether custom lyrics can be supplied.
+  lyrics_prompt_supported?: boolean | null;
+  // Venice music: whether lyrics are mandatory (no auto-written lyrics).
+  lyrics_required?: boolean | null;
+  // Venice music: whether the model can write lyrics from the prompt when
+  // none are supplied.
+  lyrics_optimizer_supported?: boolean | null;
+  // Venice music: maximum characters accepted in the lyrics field.
+  lyrics_character_limit?: number | null;
   bpm_supported?: boolean | null;
   musical_key_supported?: boolean | null;
   sample_rate_hz_options?: number[] | null;

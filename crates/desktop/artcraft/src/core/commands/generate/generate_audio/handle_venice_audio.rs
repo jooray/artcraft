@@ -19,7 +19,7 @@ use venice_client::requests::audio::retrieve_audio_response::VeniceAudioRetrieve
 use crate::core::commands::enqueue::generate_error::{BadInputReason, GenerateError};
 use crate::core::commands::enqueue::task_enqueue_success::{generation_model_to_task_model_type, TaskEnqueueSuccess};
 use crate::core::commands::generate::generate_audio::complete_venice_audio_task::complete_venice_audio_task;
-use crate::core::commands::generate::generate_audio::venice_audio_models::venice_supports_audio_model_id;
+use crate::core::commands::generate::generate_audio::venice_audio_models::venice_audio_model_spec;
 use crate::core::commands::generate::generate_image::providers::venice::complete_venice_task::mark_venice_task_failed_and_notify;
 use crate::core::commands::generate::generate_image::providers::venice::handle_venice::load_venice_api_key;
 use crate::core::commands::generate::omni::request::OmniRequest;
@@ -43,6 +43,7 @@ const MAX_CONSECUTIVE_RETRIEVE_ERRORS: u32 = 10;
 struct TauriGenerateAudioFields {
   model: Option<String>,
   prompt: Option<String>,
+  lyrics: Option<String>,
   is_instrumental: Option<bool>,
   is_loopable: Option<bool>,
   speed: Option<f64>,
@@ -62,16 +63,35 @@ pub async fn handle_venice_audio_enqueue(request: &OmniRequest, app: &AppHandle)
 
   let model = fields.model.ok_or_else(GenerateError::no_model_specified)?;
 
-  if !venice_supports_audio_model_id(&model) {
-    return Err(GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {} cannot use a Venice account.", model))));
-  }
+  let spec = venice_audio_model_spec(&model).ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {} cannot use a Venice account.", model))))?;
 
   let prompt = fields.prompt.clone().unwrap_or_default();
   if prompt.trim().is_empty() {
     return Err(GenerateError::BadInput(BadInputReason::WrongImageArguments("A prompt is required for Venice audio generation.".to_string())));
   }
 
-  let queue_request = VeniceQueueAudioRequest { model: model.clone(), prompt, duration_seconds: None, force_instrumental: fields.is_instrumental, r#loop: fields.is_loopable, speed: fields.speed };
+  // Lyrics: user-supplied when present, otherwise auto-written by models that
+  // can do it. Instrumental generations never carry lyrics.
+  let lyrics = fields.lyrics.clone().unwrap_or_default();
+  let lyrics = lyrics.trim();
+  let is_instrumental = fields.is_instrumental == Some(true);
+
+  let (lyrics_prompt, lyrics_optimizer) = if is_instrumental {
+    (None, None)
+  } else if !lyrics.is_empty() {
+    if !spec.supports_lyrics {
+      return Err(GenerateError::BadInput(BadInputReason::WrongImageArguments("This model does not support custom lyrics; remove them or pick a music model that does.".to_string())));
+    }
+    (Some(lyrics.to_string()), None)
+  } else if spec.lyrics_required {
+    return Err(GenerateError::BadInput(BadInputReason::WrongImageArguments("This model needs lyrics; type them in the lyrics field or pick a model that writes its own.".to_string())));
+  } else if spec.supports_lyrics_optimizer {
+    (None, Some(true))
+  } else {
+    (None, None)
+  };
+
+  let queue_request = VeniceQueueAudioRequest { model: model.clone(), prompt, duration_seconds: None, force_instrumental: fields.is_instrumental, r#loop: fields.is_loopable, speed: fields.speed, lyrics_prompt, lyrics_optimizer };
 
   info!("[VeniceAudio] Queueing generation: {:?}", queue_request);
 
