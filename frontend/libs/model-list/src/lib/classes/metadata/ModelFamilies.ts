@@ -13,13 +13,21 @@ const MODEL_ID_PREFIX_FAMILIES: Array<[string, string]> = [
   ["minimax", "MiniMax"],
   ["hailuo", "MiniMax"],
   ["happy_horse", "Happy Horse"],
+  ["happyhorse", "Happy Horse"],
   ["wan", "Wan"],
   ["vidu", "Vidu"],
+  ["runway", "Runway"],
+  ["pixverse", "PixVerse"],
+  ["ltx", "LTX"],
+  ["longcat", "Longcat"],
+  ["ovi", "Ovi"],
   // ── Image ── (flux also covers the Flux 3 video model)
   ["flux", "Flux"],
   ["seedream", "Seedream"],
   ["seededit", "SeedEdit"],
   ["nano_banana", "Nano Banana"],
+  // Venice (BYOK) uses dashed ids; the app's canonical ids use underscores.
+  ["nano-banana", "Nano Banana"],
   // gemini_25_flash is surfaced to users as Nano Banana.
   ["gemini_25_flash", "Nano Banana"],
   ["gpt_image", "GPT Image"],
@@ -28,6 +36,17 @@ const MODEL_ID_PREFIX_FAMILIES: Array<[string, string]> = [
   ["qwen", "Qwen"],
   ["recraft", "Recraft"],
   ["imagen", "Imagen"],
+  ["krea", "Krea"],
+  ["luma", "Luma"],
+  ["ideogram", "Ideogram"],
+  ["muse", "Muse"],
+  ["imagineart", "ImagineArt"],
+  ["z-image", "Z-Image"],
+  ["chroma", "Chroma"],
+  // Hunyuan image models group separately from the 3D ones.
+  ["hunyuan-image", "Hunyuan"],
+  // Venice's Gemini video models group as Gemini (after gemini_25_flash).
+  ["gemini", "Gemini"],
   // ── 3D / world ──
   ["hunyuan", "Hunyuan 3D"],
   ["tripo", "Tripo"],
@@ -52,6 +71,7 @@ export const FAMILY_ORDER: string[] = [
   "Vidu",
   "Happy Horse",
   "Wan",
+  "Runway",
   // Image families.
   "Nano Banana",
   "Seedream",
@@ -62,6 +82,10 @@ export const FAMILY_ORDER: string[] = [
   "SeedEdit",
   "Recraft",
   "Imagen",
+  "Krea",
+  "Luma",
+  "Ideogram",
+  "Muse",
 ];
 
 // Creators whose enum name isn't already the right display form.

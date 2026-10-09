@@ -37,10 +37,15 @@ export function useLocalCompletedTasks(options: { mediaClasses?: string[] } = {}
         const providerKey = task.provider ? String(task.provider).toLowerCase() : undefined;
         const label = [modelId ? getModelDisplayName(modelId) : undefined, providerKey ? getProviderDisplayName(providerKey) : undefined].filter(Boolean).join(" · ");
 
+        // Images render the file itself as the card thumbnail (there is no
+        // separate thumbnail asset); videos/audio keep the placeholder icon
+        // until opened (no poster frames for local files yet).
+        const thumbnail = mediaClass === "image" ? cdnUrl : null;
+
         completed.push({
           id: completedItem.primary_media_file.token,
           label: label || "Generation",
-          thumbnail: null,
+          thumbnail,
           fullImage: cdnUrl,
           createdAt: (task.completed_at ?? task.updated_at ?? task.created_at).toISOString(),
           mediaClass,

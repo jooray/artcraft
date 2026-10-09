@@ -89,6 +89,41 @@ const videoResolutionLabelsFor = (labels: string[]): string[] =>
     .map((label) => VIDEO_RESOLUTION_LABELS[label.trim().toUpperCase()])
     .filter((value): value is string => value !== undefined);
 
+// Catalog models carry no creator metadata; infer it from the id prefix so
+// picker icons and family grouping match the compiled models. Unknown
+// families fall back to the Venice creator.
+const CREATOR_BY_MODEL_PREFIX: Array<[string, ModelCreator]> = [
+  ["nano-banana", ModelCreator.Google],
+  ["gemini", ModelCreator.Google],
+  ["veo", ModelCreator.Google],
+  ["krea", ModelCreator.Krea],
+  ["luma", ModelCreator.Luma],
+  ["ideogram", ModelCreator.Ideogram],
+  ["muse", ModelCreator.Muse],
+  ["z-image", ModelCreator.Alibaba],
+  ["qwen", ModelCreator.Alibaba],
+  ["wan", ModelCreator.Alibaba],
+  ["happyhorse", ModelCreator.Alibaba],
+  ["seedream", ModelCreator.Bytedance],
+  ["seedance", ModelCreator.Bytedance],
+  ["flux", ModelCreator.BlackForestLabs],
+  ["grok", ModelCreator.Grok],
+  ["recraft", ModelCreator.Recraft],
+  ["hunyuan", ModelCreator.Tencent],
+  ["kling", ModelCreator.Kling],
+  ["runway", ModelCreator.Runway],
+  ["minimax", ModelCreator.Hailuo],
+  ["vidu", ModelCreator.Vidu],
+];
+
+const creatorForModelId = (modelId: string): ModelCreator => {
+  const normalized = modelId.toLowerCase();
+  for (const [prefix, creator] of CREATOR_BY_MODEL_PREFIX) {
+    if (normalized.startsWith(prefix)) return creator;
+  }
+  return ModelCreator.Venice;
+};
+
 // ── Image models ──
 
 /**
@@ -110,7 +145,7 @@ export const buildVeniceCatalogImageModels = (
         tauriId: entry.id,
         fullName: entry.name,
         category: "image",
-        creator: ModelCreator.Venice,
+        creator: creatorForModelId(entry.id),
         providers: [GenerationProvider.Venice],
         selectorName: entry.name,
         selectorDescription: "Venice catalog model",
@@ -303,7 +338,7 @@ export const buildVeniceCatalogVideoModels = (
       tauriId: representative?.id ?? family.baseId,
       fullName,
       category: "video",
-      creator: ModelCreator.Venice,
+      creator: creatorForModelId(representative?.id ?? family.baseId),
       providers: [GenerationProvider.Venice],
       selectorName: fullName,
       selectorDescription: "Venice catalog model",

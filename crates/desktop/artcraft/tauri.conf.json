@@ -29,7 +29,9 @@
           "https://www.google-analytics.com",
           "https://www.googletagmanager.com",
           "ipc://localhost",
-          "tauri://localhost"
+          "tauri://localhost",
+          "asset:",
+          "http://asset.localhost"
         ],
         "connect-src": [
           "'self'",
@@ -60,7 +62,9 @@
           "https://*.fakeyou.com",
           "https://*.storyteller.ai",
           "ipc://localhost",
-          "tauri://localhost"
+          "tauri://localhost",
+          "asset:",
+          "http://asset.localhost"
         ],
         "script-src": [
           "'self'",
@@ -91,6 +95,15 @@
           "https://fonts.googleapis.com",
           "ipc://localhost",
           "tauri://localhost"
+        ],
+        "media-src": [
+          "'self'",
+          "blob:",
+          "data:",
+          "asset:",
+          "http://asset.localhost",
+          "https://*.fakeyou.com",
+          "https://*.storyteller.ai"
         ]
       }
     }

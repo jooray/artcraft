@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { GenerationProvider } from "@storyteller/api-enums";
 import { CommonAspectRatio } from "../classes/properties/CommonAspectRatio.js";
 import { CommonResolution } from "../classes/properties/CommonResolution.js";
+import { ModelCreator } from "../classes/metadata/ModelCreator.js";
+import { getModelFamilyName } from "../classes/metadata/ModelFamilies.js";
 import {
   buildVeniceCatalogImageModels,
   buildVeniceCatalogVideoModels,
@@ -190,5 +192,48 @@ describe("venice catalog builders", () => {
       "Runway Gen-5 (Image)",
       "Runway Gen-5 (Text)",
     ]);
+  });
+});
+
+describe("family grouping", () => {
+  it("groups dashed Venice ids with their compiled families", () => {
+    expect(getModelFamilyName("nano_banana_2", ModelCreator.Google)).toBe("Nano Banana");
+    expect(getModelFamilyName("nano-banana-2-1", ModelCreator.Google)).toBe("Nano Banana");
+    expect(getModelFamilyName("nano-banana-2-lite", ModelCreator.Venice)).toBe("Nano Banana");
+    expect(getModelFamilyName("krea-v2-medium", ModelCreator.Venice)).toBe("Krea");
+    expect(getModelFamilyName("luma-uni-1", ModelCreator.Venice)).toBe("Luma");
+    expect(getModelFamilyName("ideogram-v4", ModelCreator.Venice)).toBe("Ideogram");
+    expect(getModelFamilyName("z-image-turbo", ModelCreator.Venice)).toBe("Z-Image");
+    expect(getModelFamilyName("hunyuan-image-v3", ModelCreator.Venice)).toBe("Hunyuan");
+    expect(getModelFamilyName("hunyuan_3d_2", ModelCreator.Tencent)).toBe("Hunyuan 3D");
+    expect(getModelFamilyName("gemini-omni-flash-1-1-text-to-video", ModelCreator.Google)).toBe("Gemini");
+    expect(getModelFamilyName("gemini_25_flash", ModelCreator.Google)).toBe("Nano Banana");
+    expect(getModelFamilyName("runway-gen4-5", ModelCreator.Runway)).toBe("Runway");
+    expect(getModelFamilyName("happyhorse-1-1-text-to-video", ModelCreator.Alibaba)).toBe("Happy Horse");
+  });
+
+  it("infers creators for catalog models from the id", () => {
+    const [imageModel] = buildVeniceCatalogImageModels([
+      { id: "nano-banana-9", name: "Nano Banana 9", aspect_ratios: [], resolutions: [] },
+    ]);
+    expect(imageModel.creator).toBe(ModelCreator.Google);
+
+    const [videoModel] = buildVeniceCatalogVideoModels([
+      {
+        id: "kling-4-0-text-to-video",
+        name: "Kling 4.0",
+        model_type: "text-to-video",
+        aspect_ratios: [],
+        resolutions: [],
+        durations: ["5s"],
+        audio: false,
+      },
+    ]);
+    expect(videoModel.creator).toBe(ModelCreator.Kling);
+
+    const [unknownModel] = buildVeniceCatalogImageModels([
+      { id: "mystery-model", name: "Mystery", aspect_ratios: [], resolutions: [] },
+    ]);
+    expect(unknownModel.creator).toBe(ModelCreator.Venice);
   });
 });
