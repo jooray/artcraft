@@ -44,6 +44,9 @@
   ],
   "references": [
     {
+      "path": "../../api/tsconfig.lib.json"
+    },
+    {
       "path": "../../tauri-utils/tsconfig.lib.json"
     },
     {
@@ -56,10 +59,10 @@
       "path": "../popover/tsconfig.lib.json"
     },
     {
-      "path": "../../api-enums/tsconfig.lib.json"
+      "path": "../../model-list/tsconfig.lib.json"
     },
     {
-      "path": "../../model-list/tsconfig.lib.json"
+      "path": "../../api-enums/tsconfig.lib.json"
     }
   ]
 }

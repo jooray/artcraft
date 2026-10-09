@@ -91,6 +91,15 @@ const GlobalSettingsManager = ({ env }: { env: Record<string, string> }) => {
   // no-op (the UI keeps the overlay models).
   useEffect(() => {
     void useModelsStore.getState().loadModelsFromBackend();
+
+    // Venice adds models between app releases; the store re-fetches the live
+    // Venice catalog on every load. Refresh periodically so a long-running app
+    // eventually sees new models (and after credential changes — the store
+    // also listens for those).
+    const interval = window.setInterval(() => {
+      void useModelsStore.getState().loadModelsFromBackend();
+    }, 6 * 60 * 60 * 1000);
+    return () => window.clearInterval(interval);
   }, []);
 
   return null;

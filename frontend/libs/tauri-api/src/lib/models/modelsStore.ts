@@ -17,9 +17,12 @@ import {
   ALL_MODELS_LIST,
   buildImageModelsFromListing,
   buildVideoModelsFromListing,
+  buildVeniceCatalogImageModels,
+  buildVeniceCatalogVideoModels,
 } from "@storyteller/model-list";
 import { ListImageModels } from "../generate/models/image/ListImageModels.js";
 import { ListVideoModels } from "../generate/models/video/ListVideoModels.js";
+import { VeniceListCatalog } from "../generate/models/venice/VeniceListCatalog.js";
 
 export interface ModelsStoreState {
   imageModels: ImageModel[];
@@ -29,6 +32,21 @@ export interface ModelsStoreState {
   isLoading: boolean;
   loadModelsFromBackend: () => Promise<void>;
 }
+
+// Venice catalog models appended by the previous load, so a rebuild can drop
+// stale ones (e.g. after the API key is cleared) before appending fresh ones.
+let lastDynamicImageIds = new Set<string>();
+let lastDynamicVideoIds = new Set<string>();
+
+const appendDynamic = <T extends { tauriId: string }>(
+  base: T[],
+  dynamic: T[],
+  lastIds: Set<string>,
+): T[] => {
+  const existing = base.filter((model) => !lastIds.has(model.tauriId));
+  const known = new Set(existing.map((model) => model.tauriId));
+  return [...existing, ...dynamic.filter((model) => !known.has(model.tauriId))];
+};
 
 export const useModelsStore = create<ModelsStoreState>((set, get) => ({
   imageModels: IMAGE_MODELS,
@@ -40,9 +58,10 @@ export const useModelsStore = create<ModelsStoreState>((set, get) => ({
     console.log("[models] loadModelsFromBackend() — calling Tauri commands…");
     set({ isLoading: true });
 
-    const [imageResult, videoResult] = await Promise.allSettled([
+    const [imageResult, videoResult, veniceResult] = await Promise.allSettled([
       ListImageModels(),
       ListVideoModels(),
+      VeniceListCatalog(),
     ]);
 
     const next: Partial<ModelsStoreState> = { isLoading: false, loaded: true };
@@ -73,9 +92,50 @@ export const useModelsStore = create<ModelsStoreState>((set, get) => ({
       console.error("[models] failed to load video models from backend:", videoResult.reason);
     }
 
+    // Merge the RUNTIME Venice catalog: models Venice added after this app
+    // release. Generation passes their raw ids through the Venice handler.
+    if (veniceResult.status === "fulfilled") {
+      const payload = veniceResult.value.payload;
+      const dynamicImages = buildVeniceCatalogImageModels(payload.image_models ?? []);
+      const dynamicVideos = buildVeniceCatalogVideoModels(payload.video_models ?? []);
+
+      next.imageModels = appendDynamic(
+        next.imageModels ?? get().imageModels,
+        dynamicImages,
+        lastDynamicImageIds,
+      );
+      next.videoModels = appendDynamic(
+        next.videoModels ?? get().videoModels,
+        dynamicVideos,
+        lastDynamicVideoIds,
+      );
+      lastDynamicImageIds = new Set(dynamicImages.map((model) => model.tauriId));
+      lastDynamicVideoIds = new Set(dynamicVideos.map((model) => model.tauriId));
+
+      if (dynamicImages.length > 0 || dynamicVideos.length > 0) {
+        console.log(
+          `[models] Venice runtime catalog: +${dynamicImages.length} image, +${dynamicVideos.length} video model(s)`,
+        );
+      }
+    } else {
+      console.warn("[models] Venice catalog unavailable:", veniceResult.reason);
+    }
+
     set(next);
   },
 }));
+
+// Venice adds models between releases; re-check when provider credentials
+// change (a Venice key saved or cleared). The event name matches
+// `PROVIDER_CREDENTIALS_CHANGED_EVENT` in `@storyteller/ui-model-selector`
+// (imported as a literal to avoid a dependency cycle; that lib depends on
+// this one). Boot and periodic refreshes call `loadModelsFromBackend`
+// directly.
+if (typeof window !== "undefined") {
+  window.addEventListener("provider-credentials-changed", () => {
+    void useModelsStore.getState().loadModelsFromBackend();
+  });
+}
 
 // Hook selectors for React consumers.
 export const useImageModels = (): ImageModel[] => useModelsStore((s) => s.imageModels);

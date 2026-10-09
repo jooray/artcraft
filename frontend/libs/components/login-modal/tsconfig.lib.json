@@ -44,6 +44,9 @@
   ],
   "references": [
     {
+      "path": "../model-selector/tsconfig.lib.json"
+    },
+    {
       "path": "../../icons/tsconfig.lib.json"
     },
     {

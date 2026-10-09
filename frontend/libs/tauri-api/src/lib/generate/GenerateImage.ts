@@ -106,7 +106,7 @@ export const GenerateImage = async (
     );
   }
 
-  const mutableRequest = { ...request, model: modelName };
+  const mutableRequest = { ...request, model: modelName, model_id: modelName };
 
   const result = await invoke("generate_image_command", {
     request: mutableRequest,

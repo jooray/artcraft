@@ -144,9 +144,14 @@ impl VeniceClient {
     Ok(bytes.to_vec())
   }
 
+  /// `GET /models?type=...`: models with their pricing and constraint metadata.
+  pub async fn list_models(&self, model_type: &str) -> Result<VeniceModelsResponse, VeniceError> {
+    self.get_json(&format!("/models?type={}", model_type)).await
+  }
+
   /// `GET /models?type=image`: image models with their pricing metadata.
   pub async fn list_image_models(&self) -> Result<VeniceModelsResponse, VeniceError> {
-    self.get_json("/models?type=image").await
+    self.list_models("image").await
   }
 
   /// `POST /video/quote`: estimated USD price for a video generation.

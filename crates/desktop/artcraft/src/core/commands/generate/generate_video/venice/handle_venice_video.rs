@@ -6,6 +6,7 @@ use enums::common::generation_provider::GenerationProvider;
 use enums::tauri::tasks::task_status::TaskStatus;
 use enums::tauri::tasks::task_type::TaskType;
 use log::{error, info, warn};
+use serde_json::Value;
 use sqlite_tasks::queries::task::Task;
 use tauri::{AppHandle, Manager};
 use tokens::tokens::media_files::MediaFileToken;
@@ -21,11 +22,12 @@ use crate::core::commands::enqueue::task_enqueue_success::{generation_model_to_t
 use crate::core::commands::generate::generate_image::providers::artcraft_router::utils::map_media_files_to_urls::map_media_file_tokens_to_cdn_urls;
 use crate::core::commands::generate::generate_image::providers::venice::complete_venice_task::mark_venice_task_failed_and_notify;
 use crate::core::commands::generate::generate_image::providers::venice::handle_venice::load_venice_api_key;
-use crate::core::commands::generate::generate_video::request::TauriGenerateVideoRequest;
+use crate::core::commands::generate::generate_video::request::{TauriGenerateVideoRequest, TauriVideoModel};
 use crate::core::commands::generate::generate_video::venice::complete_venice_video_task::complete_venice_video_task;
-use crate::core::commands::generate::generate_video::venice::venice_video_model::{resolve_supported_aspect_ratio, resolve_supported_resolution, venice_video_model_spec, VeniceVideoModelSpec, VENICE_MAX_VIDEO_BATCH};
+use crate::core::commands::generate::generate_video::venice::venice_video_model::{map_aspect_ratio, map_resolution, resolve_supported_aspect_ratio, resolve_supported_resolution, venice_video_model_spec, VeniceVideoModelSpec, VENICE_MAX_VIDEO_BATCH};
 use crate::core::events::basic_sendable_event_trait::BasicSendableEvent;
 use crate::core::events::functional_events::credits_balance_changed_event::CreditsBalanceChangedEvent;
+use crate::core::events::generation_events::common::GenerationModel;
 use crate::core::events::generation_events::generation_enqueue_success_event::GenerationEnqueueSuccessEvent;
 use crate::core::providers::credentials::provider_credential_loading_cache::ProviderCredentialLoadingCache;
 use crate::core::state::app_env_configs::app_env_configs::AppEnvConfigs;
@@ -49,9 +51,7 @@ pub async fn handle_venice_video_enqueue(request: &TauriGenerateVideoRequest, ap
   // Logged in: upload results to the ArtCraft library. Logged out: save locally.
   let use_library_upload = storyteller_creds_manager.get_credentials().ok().flatten().is_some();
 
-  let tauri_model = request.model.ok_or_else(GenerateError::no_model_specified)?;
-
-  let spec = venice_video_model_spec(tauri_model).ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {:?} cannot use a Venice account.", tauri_model))))?;
+  let source = resolve_video_model_source(request)?;
 
   let prompt = request.prompt.clone().unwrap_or_default();
   if prompt.trim().is_empty() {
@@ -68,26 +68,58 @@ pub async fn handle_venice_video_enqueue(request: &TauriGenerateVideoRequest, ap
   let reference_video_urls = resolve_tokens(&request.reference_video_media_tokens, app_env_configs).await?;
   let reference_audio_urls = resolve_tokens(&request.reference_audio_media_tokens, app_env_configs).await?;
 
-  validate_video_inputs(request, tauri_model, &spec, &start_image_url, &end_image_url, &reference_image_urls, &reference_video_urls, &reference_audio_urls)?;
-
-  // Pick the Venice variant: reference-to-video > image-to-video (start/end
-  // frame) > text-to-video.
-  let (venice_model, aspect_ratio_options, resolution_options) = if !reference_image_urls.is_empty() {
-    let model = spec.reference_to_video.ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {:?} does not support reference images on Venice yet.", tauri_model))))?;
-    (model, spec.reference_to_video_aspect_ratios, spec.reference_to_video_resolutions)
-  } else if start_image_url.is_some() {
-    let model = spec.image_to_video.ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {:?} does not support image-to-video on Venice yet.", tauri_model))))?;
-    let model = if end_image_url.is_some() { spec.first_last_frame.unwrap_or(model) } else { model };
-    (model, spec.image_to_video_aspect_ratios, spec.image_to_video_resolutions)
-  } else {
-    (spec.text_to_video, spec.text_to_video_aspect_ratios, spec.text_to_video_resolutions)
+  let generation_model = match &source {
+    VeniceVideoModelSource::Static(tauri_model) => tauri_video_model_to_generation_model(*tauri_model),
+    VeniceVideoModelSource::Dynamic(id) => GenerationModel::Unknown(id.clone()),
   };
 
-  let aspect_ratio = request.aspect_ratio.and_then(|value| resolve_supported_aspect_ratio(value, aspect_ratio_options));
-  let resolution = request.resolution.and_then(|value| resolve_supported_resolution(value, resolution_options));
+  // Pick the Venice variant: reference-to-video > image-to-video (start/end
+  // frame) > text-to-video. Runtime catalog ids switch variants by id suffix.
+  let (venice_model, aspect_ratio, resolution) = match &source {
+    VeniceVideoModelSource::Static(tauri_model) => {
+      let tauri_model = *tauri_model;
+      let spec = venice_video_model_spec(tauri_model).ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {:?} cannot use a Venice account.", tauri_model))))?;
+
+      validate_video_inputs(request, tauri_model, &spec, &start_image_url, &end_image_url, &reference_image_urls, &reference_video_urls, &reference_audio_urls)?;
+
+      let (venice_model, aspect_ratio_options, resolution_options) = if !reference_image_urls.is_empty() {
+        let model = spec.reference_to_video.ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {:?} does not support reference images on Venice yet.", tauri_model))))?;
+        (model, spec.reference_to_video_aspect_ratios, spec.reference_to_video_resolutions)
+      } else if start_image_url.is_some() {
+        let model = spec.image_to_video.ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {:?} does not support image-to-video on Venice yet.", tauri_model))))?;
+        let model = if end_image_url.is_some() { spec.first_last_frame.unwrap_or(model) } else { model };
+        (model, spec.image_to_video_aspect_ratios, spec.image_to_video_resolutions)
+      } else {
+        (spec.text_to_video, spec.text_to_video_aspect_ratios, spec.text_to_video_resolutions)
+      };
+
+      let aspect_ratio = request.aspect_ratio.and_then(|value| resolve_supported_aspect_ratio(value, aspect_ratio_options));
+      let resolution = request.resolution.and_then(|value| resolve_supported_resolution(value, resolution_options));
+
+      (venice_model.to_string(), aspect_ratio, resolution)
+    },
+    VeniceVideoModelSource::Dynamic(model_id) => {
+      validate_dynamic_video_inputs(request, &end_image_url, &start_image_url)?;
+
+      let venice_model = if !reference_image_urls.is_empty() {
+        swap_video_model_variant(model_id, "-text-to-video", "-reference-to-video").ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments("This model does not support reference images on Venice yet.".to_string())))?
+      } else if start_image_url.is_some() {
+        swap_video_model_variant(model_id, "-text-to-video", "-image-to-video").unwrap_or_else(|| model_id.clone())
+      } else {
+        model_id.clone()
+      };
+
+      // Runtime models have no known constraint lists; pass mapped values and
+      // let Venice validate them.
+      let aspect_ratio = request.aspect_ratio.and_then(|value| map_aspect_ratio(value).map(str::to_owned));
+      let resolution = request.resolution.and_then(|value| map_resolution(value).map(str::to_owned));
+
+      (venice_model, aspect_ratio, resolution)
+    },
+  };
 
   let queue_request = VeniceQueueVideoRequest {
-    model: venice_model.to_string(),
+    model: venice_model.clone(),
     duration,
     prompt: Some(prompt),
     negative_prompt: request.negative_prompt.clone().filter(|value| !value.trim().is_empty()),
@@ -111,7 +143,7 @@ pub async fn handle_venice_video_enqueue(request: &TauriGenerateVideoRequest, ap
 
   let success = TaskEnqueueSuccess {
     task_type: TaskType::VideoGeneration,
-    model: Some(tauri_video_model_to_generation_model(tauri_model)),
+    model: Some(generation_model),
     provider: GenerationProvider::Venice,
     provider_job_id: Some(queue_response.queue_id.clone()),
     maybe_queue_status_url: None,
@@ -138,6 +170,35 @@ pub async fn handle_venice_video_enqueue(request: &TauriGenerateVideoRequest, ap
   });
 
   Ok(())
+}
+
+// ── Model resolution ──
+
+/// The model the request targets: either a compiled desktop model or a runtime
+/// provider-catalog id (Venice adds models between app releases).
+enum VeniceVideoModelSource {
+  Static(TauriVideoModel),
+  Dynamic(String),
+}
+
+fn resolve_video_model_source(request: &TauriGenerateVideoRequest) -> Result<VeniceVideoModelSource, GenerateError> {
+  match (&request.model_id, request.model) {
+    (Some(raw_model_id), _) => {
+      let parsed: TauriVideoModel = serde_json::from_value(Value::String(raw_model_id.clone())).unwrap_or(TauriVideoModel::Unknown);
+      Ok(match parsed {
+        TauriVideoModel::Unknown => VeniceVideoModelSource::Dynamic(raw_model_id.clone()),
+        known => VeniceVideoModelSource::Static(known),
+      })
+    },
+    (None, Some(known)) if known != TauriVideoModel::Unknown => Ok(VeniceVideoModelSource::Static(known)),
+    _ => Err(GenerateError::no_model_specified()),
+  }
+}
+
+/// Swap a runtime Venice video id to another workflow variant, when the id
+/// follows the standard `-text-to-video` naming.
+fn swap_video_model_variant(model_id: &str, from: &str, to: &str) -> Option<String> {
+  model_id.contains(from).then(|| model_id.replace(from, to))
 }
 
 // ── Background polling ──
@@ -228,8 +289,8 @@ fn build_task_record(task_id: tokens::tokens::sqlite::tasks::TaskId, success: &T
   }
 }
 
-/// Reject inputs Venice cannot serve for the selected model.
-fn validate_video_inputs(request: &TauriGenerateVideoRequest, tauri_model: crate::core::commands::generate::generate_video::request::TauriVideoModel, spec: &VeniceVideoModelSpec, start_image_url: &Option<String>, end_image_url: &Option<String>, reference_image_urls: &[String], reference_video_urls: &[String], reference_audio_urls: &[String]) -> Result<(), GenerateError> {
+/// Reject inputs Venice cannot serve for the selected compiled model.
+fn validate_video_inputs(request: &TauriGenerateVideoRequest, tauri_model: TauriVideoModel, spec: &VeniceVideoModelSpec, start_image_url: &Option<String>, end_image_url: &Option<String>, reference_image_urls: &[String], reference_video_urls: &[String], reference_audio_urls: &[String]) -> Result<(), GenerateError> {
   if request.video_batch_count.unwrap_or(1) > VENICE_MAX_VIDEO_BATCH {
     return Err(GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Venice generates {} video per request; set the generation count to {}.", VENICE_MAX_VIDEO_BATCH, VENICE_MAX_VIDEO_BATCH))));
   }
@@ -262,6 +323,23 @@ fn validate_video_inputs(request: &TauriGenerateVideoRequest, tauri_model: crate
     if reference_image_urls.is_empty() {
       return Err(GenerateError::BadInput(BadInputReason::WrongImageArguments("Venice reference audio needs at least one reference image.".to_string())));
     }
+  }
+
+  Ok(())
+}
+
+/// Runtime catalog models: same baseline rules, no per-model capability lists.
+fn validate_dynamic_video_inputs(request: &TauriGenerateVideoRequest, end_image_url: &Option<String>, start_image_url: &Option<String>) -> Result<(), GenerateError> {
+  if request.video_batch_count.unwrap_or(1) > VENICE_MAX_VIDEO_BATCH {
+    return Err(GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Venice generates {} video per request; set the generation count to {}.", VENICE_MAX_VIDEO_BATCH, VENICE_MAX_VIDEO_BATCH))));
+  }
+
+  if request.reference_character_tokens.as_ref().is_some_and(|tokens| !tokens.is_empty()) {
+    return Err(GenerateError::BadInput(BadInputReason::WrongImageArguments("Venice does not support character references yet; remove them and try again.".to_string())));
+  }
+
+  if end_image_url.is_some() && start_image_url.is_none() {
+    return Err(GenerateError::BadInput(BadInputReason::WrongImageArguments("Venice needs a start frame before an end frame.".to_string())));
   }
 
   Ok(())

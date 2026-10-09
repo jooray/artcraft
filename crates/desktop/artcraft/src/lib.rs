@@ -16,6 +16,7 @@ use crate::core::commands::cost_estimate::estimate_splat_cost_command::estimate_
 use crate::core::commands::cost_estimate::estimate_video_cost_command::estimate_video_cost_command;
 use crate::core::commands::generate::models::image::list_image_models_command::list_image_models_command;
 use crate::core::commands::generate::models::video::list_video_models_command::list_video_models_command;
+use crate::core::commands::generate::models::venice::venice_catalog_command::venice_catalog_command;
 use crate::core::commands::download::download_directory_reveal_command::download_directory_reveal_command;
 use crate::core::commands::download::download_media_file_command::download_media_file_command;
 use crate::core::commands::download::download_url_command::download_url_command;
@@ -240,6 +241,7 @@ pub fn run() {
     estimate_mesh_cost_command,
     list_image_models_command,
     list_video_models_command,
+    venice_catalog_command,
     flip_image,
     generate_image_command,
     generate_video_command,

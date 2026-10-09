@@ -3,7 +3,7 @@
   "include": [],
   "references": [
     {
-      "path": "../../api"
+      "path": "../model-selector"
     },
     {
       "path": "../../icons"
@@ -13,6 +13,9 @@
     },
     {
       "path": "../input"
+    },
+    {
+      "path": "../../api"
     },
     {
       "path": "./tsconfig.lib.json"

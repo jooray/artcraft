@@ -52,6 +52,7 @@ pub fn venice_video_model_spec(model: TauriVideoModel) -> Option<VeniceVideoMode
   const NO_RESOLUTIONS: &[&str] = &[];
   const NO_ASPECTS: &[&str] = &[];
   const HAPPY_HORSE_RES: &[&str] = &["1080p", "720p"];
+  const HAPPY_HORSE_REF_ASPECTS: &[&str] = &["16:9", "9:16", "1:1", "4:3", "3:4"];
 
   let spec = match model {
     TauriVideoModel::Seedance2p0 => VeniceVideoModelSpec {
@@ -71,14 +72,14 @@ pub fn venice_video_model_spec(model: TauriVideoModel) -> Option<VeniceVideoMode
     TauriVideoModel::Seedance2p0Fast => VeniceVideoModelSpec {
       text_to_video: "seedance-2-0-fast-text-to-video-basic",
       image_to_video: Some("seedance-2-0-fast-image-to-video-basic"),
-      reference_to_video: None,
+      reference_to_video: Some("seedance-2-0-fast-reference-to-video-basic"),
       first_last_frame: None,
       text_to_video_aspect_ratios: SEEDANCE_ASPECTS,
       text_to_video_resolutions: SEEDANCE_2_FAST_RES,
       image_to_video_aspect_ratios: NO_ASPECTS,
       image_to_video_resolutions: SEEDANCE_2_FAST_RES,
-      reference_to_video_aspect_ratios: NO_ASPECTS,
-      reference_to_video_resolutions: NO_RESOLUTIONS,
+      reference_to_video_aspect_ratios: SEEDANCE_ASPECTS,
+      reference_to_video_resolutions: SEEDANCE_2_FAST_RES,
       supports_reference_videos: false,
       supports_reference_audios: false,
     },
@@ -253,14 +254,14 @@ pub fn venice_video_model_spec(model: TauriVideoModel) -> Option<VeniceVideoMode
     TauriVideoModel::HappyHorse1p0 => VeniceVideoModelSpec {
       text_to_video: "happyhorse-1-0-text-to-video",
       image_to_video: Some("happyhorse-1-0-image-to-video"),
-      reference_to_video: None,
+      reference_to_video: Some("happyhorse-1-0-reference-to-video"),
       first_last_frame: None,
       text_to_video_aspect_ratios: WIDE_TALL_SQUARE,
       text_to_video_resolutions: HAPPY_HORSE_RES,
       image_to_video_aspect_ratios: NO_ASPECTS,
       image_to_video_resolutions: HAPPY_HORSE_RES,
-      reference_to_video_aspect_ratios: NO_ASPECTS,
-      reference_to_video_resolutions: NO_RESOLUTIONS,
+      reference_to_video_aspect_ratios: HAPPY_HORSE_REF_ASPECTS,
+      reference_to_video_resolutions: HAPPY_HORSE_RES,
       supports_reference_videos: false,
       supports_reference_audios: false,
     },
@@ -336,6 +337,55 @@ pub fn venice_supports_video_model_id(model_id: &str) -> bool {
       | "happy_horse_1p0"
   )
 }
+
+/// Venice video model ids this build already maps (all variants).
+/// The runtime catalog only surfaces ids OUTSIDE this list.
+pub const VENICE_STATIC_VIDEO_MODEL_IDS: &[&str] = &[
+  "seedance-2-0-text-to-video-basic",
+  "seedance-2-0-image-to-video-basic",
+  "seedance-2-0-reference-to-video-basic",
+  "seedance-2-0-fast-text-to-video-basic",
+  "seedance-2-0-fast-image-to-video-basic",
+  "seedance-2-0-fast-reference-to-video-basic",
+  "seedance-1-5-pro-text-to-video-basic",
+  "seedance-1-5-pro-image-to-video-basic",
+  "seedance-2-5-text-to-video-basic",
+  "seedance-2-5-image-to-video-basic",
+  "seedance-2-5-reference-to-video-basic",
+  "wan-3-0-text-to-video",
+  "wan-3-0-image-to-video",
+  "wan-3-0-reference-to-video",
+  "wan-3-0-prime-text-to-video",
+  "wan-3-0-prime-image-to-video",
+  "wan-3-0-prime-reference-to-video",
+  "kling-2.5-turbo-pro-text-to-video",
+  "kling-2.5-turbo-pro-image-to-video",
+  "kling-2.6-pro-text-to-video",
+  "kling-2.6-pro-image-to-video",
+  "kling-v3-standard-text-to-video",
+  "kling-v3-standard-image-to-video",
+  "kling-v3-pro-text-to-video",
+  "kling-v3-pro-image-to-video",
+  "veo3-full-text-to-video",
+  "veo3-full-image-to-video",
+  "veo3-fast-text-to-video",
+  "veo3-fast-image-to-video",
+  "veo3.1-full-text-to-video",
+  "veo3.1-full-image-to-video",
+  "veo3.1-fast-text-to-video",
+  "veo3.1-fast-image-to-video",
+  "vidu-q3-text-to-video",
+  "vidu-q3-image-to-video",
+  "minimax-h3-text-to-video",
+  "minimax-h3-image-to-video",
+  "minimax-h3-reference-to-video",
+  "flux-3-text-to-video",
+  "flux-3-image-to-video",
+  "flux-3-first-last-frame-to-video",
+  "happyhorse-1-0-text-to-video",
+  "happyhorse-1-0-image-to-video",
+  "happyhorse-1-0-reference-to-video",
+];
 
 // ── Parameter mapping ──
 
@@ -517,6 +567,50 @@ mod tests {
       assert!(!venice_supports_video_model_id("sora_2"));
       assert!(!venice_supports_video_model_id("seedance_2p5_u"));
       assert!(!venice_supports_video_model_id("vidu_q3_turbo"));
+    }
+
+    #[test]
+    fn static_id_list_matches_the_spec_table() {
+      let variants = [
+        TauriVideoModel::Seedance2p0,
+        TauriVideoModel::Seedance2p0Fast,
+        TauriVideoModel::Seedance1p5Pro,
+        TauriVideoModel::Seedance2p5,
+        TauriVideoModel::Wan3p0,
+        TauriVideoModel::Wan3p0Prime,
+        TauriVideoModel::Kling2p5TurboPro,
+        TauriVideoModel::Kling2p6Pro,
+        TauriVideoModel::Kling3p0Standard,
+        TauriVideoModel::Kling3p0Pro,
+        TauriVideoModel::Veo3,
+        TauriVideoModel::Veo3Fast,
+        TauriVideoModel::Veo3p1,
+        TauriVideoModel::Veo3p1Fast,
+        TauriVideoModel::ViduQ3,
+        TauriVideoModel::MinimaxH3,
+        TauriVideoModel::Flux3,
+        TauriVideoModel::HappyHorse1p0,
+      ];
+
+      let mut expected: Vec<&str> = Vec::new();
+      for variant in variants {
+        let spec = venice_video_model_spec(variant).expect("variant should have a spec");
+        expected.push(spec.text_to_video);
+        if let Some(model) = spec.image_to_video {
+          expected.push(model);
+        }
+        if let Some(model) = spec.reference_to_video {
+          expected.push(model);
+        }
+        if let Some(model) = spec.first_last_frame {
+          expected.push(model);
+        }
+      }
+      expected.sort_unstable();
+
+      let mut listed = VENICE_STATIC_VIDEO_MODEL_IDS.to_vec();
+      listed.sort_unstable();
+      assert_eq!(listed, expected);
     }
   }
 

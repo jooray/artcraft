@@ -44,16 +44,13 @@
   ],
   "references": [
     {
-      "path": "../../state/subscription/tsconfig.lib.json"
-    },
-    {
       "path": "../tab-selector/tsconfig.lib.json"
     },
     {
       "path": "../button/tsconfig.lib.json"
     },
     {
-      "path": "../../icons/tsconfig.lib.json"
+      "path": "../../state/subscription/tsconfig.lib.json"
     }
   ]
 }

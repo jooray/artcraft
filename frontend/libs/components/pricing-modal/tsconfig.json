@@ -3,25 +3,19 @@
   "include": [],
   "references": [
     {
-      "path": "../../tauri-api"
+      "path": "../pricing-table"
     },
     {
       "path": "../../state/subscription"
     },
     {
-      "path": "../tab-selector"
-    },
-    {
-      "path": "../pricing-table"
+      "path": "../../tauri-api"
     },
     {
       "path": "../button"
     },
     {
       "path": "../select"
-    },
-    {
-      "path": "../../icons"
     },
     {
       "path": "../modal"

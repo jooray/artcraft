@@ -33,5 +33,7 @@ pub fn tauri_video_model_to_generation_model(model: TauriVideoModel) -> Generati
     TauriVideoModel::Veo3Fast => GenerationModel::Veo3Fast,
     TauriVideoModel::Veo3p1 => GenerationModel::Veo3p1,
     TauriVideoModel::Veo3p1Fast => GenerationModel::Veo3p1Fast,
+    // Runtime catalog ids; venice handlers carry the real id separately.
+    TauriVideoModel::Unknown => GenerationModel::Unknown("unknown".to_string()),
   }
 }

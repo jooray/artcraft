@@ -95,7 +95,7 @@ export const GenerateVideo = async (
     );
   }
 
-  const mutableRequest = { ...request, model: modelName };
+  const mutableRequest = { ...request, model: modelName, model_id: modelName };
 
   const result = await invoke("generate_video_command", {
     request: mutableRequest,

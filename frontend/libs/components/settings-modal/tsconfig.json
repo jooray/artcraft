@@ -3,13 +3,16 @@
   "include": [],
   "references": [
     {
-      "path": "../keybinds"
+      "path": "../../icons"
     },
     {
       "path": "../../tauri-utils"
     },
     {
       "path": "../../model-list"
+    },
+    {
+      "path": "../keybinds"
     },
     {
       "path": "../popover"
@@ -42,13 +45,13 @@
       "path": "../../tauri-events"
     },
     {
+      "path": "../model-selector"
+    },
+    {
       "path": "../login-modal"
     },
     {
       "path": "../../api"
-    },
-    {
-      "path": "../../icons"
     },
     {
       "path": "../../analytics/google-analytics"

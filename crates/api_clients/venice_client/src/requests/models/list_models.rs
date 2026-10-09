@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-/// Response body for `GET /models?type=image`.
+/// Response body for `GET /models?type=...`.
 #[derive(Clone, Debug, Deserialize)]
 pub struct VeniceModelsResponse {
   pub data: Vec<VeniceModel>,
@@ -22,6 +22,17 @@ pub struct VeniceModelSpec {
   /// `resolutions` tiers, and/or a `quality` matrix).
   #[serde(default)]
   pub pricing: Option<serde_json::Value>,
+
+  /// Model constraints (sizing, durations, aspect ratios, …); shape varies by
+  /// model type.
+  #[serde(default)]
+  pub constraints: Option<serde_json::Value>,
+
+  #[serde(default, rename = "supportsStyleReferences")]
+  pub supports_style_references: Option<bool>,
+
+  #[serde(default)]
+  pub offline: Option<bool>,
 }
 
 #[cfg(test)]

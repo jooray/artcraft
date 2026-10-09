@@ -4,10 +4,12 @@ use artcraft_client::endpoints::prompts::create_prompt::create_prompt;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use enums::common::generation::common_generation_mode::CommonGenerationMode;
+use enums::common::generation::common_model_type::CommonModelType;
 use enums::common::generation_provider::GenerationProvider;
 use enums::tauri::tasks::task_status::TaskStatus;
 use enums::tauri::tasks::task_type::TaskType;
 use log::{error, info, warn};
+use serde_json::Value;
 use sqlite_tasks::queries::task::Task;
 use tauri::{AppHandle, Manager};
 use tokens::tokens::media_files::MediaFileToken;
@@ -26,11 +28,12 @@ use crate::core::commands::enqueue::generate_error::{BadInputReason, GenerateErr
 use crate::core::commands::enqueue::task_enqueue_success::{generation_model_to_task_model_type, TaskEnqueueSuccess};
 use crate::core::commands::generate::generate_image::providers::artcraft_router::utils::map_media_files_to_urls::map_media_file_tokens_to_cdn_urls;
 use crate::core::commands::generate::generate_image::providers::venice::complete_venice_task::complete_venice_task;
-use crate::core::commands::generate::generate_image::providers::venice::venice_image_model::{map_aspect_ratio, map_quality, pixel_dimensions, resolve_supported_resolution, venice_model_spec, VeniceSizingMode, VENICE_MAX_VARIANTS};
+use crate::core::commands::generate::generate_image::providers::venice::venice_image_model::{map_aspect_ratio, map_quality, map_resolution, pixel_dimensions, resolve_supported_resolution, venice_model_spec, VeniceSizingMode, VENICE_MAX_VARIANTS};
 use crate::core::commands::generate::generate_image::tauri_generate_image_request::TauriGenerateImageRequest;
 use crate::core::commands::generate::generate_image::tauri_image_model::TauriImageModel;
 use crate::core::events::basic_sendable_event_trait::BasicSendableEvent;
 use crate::core::events::functional_events::credits_balance_changed_event::CreditsBalanceChangedEvent;
+use crate::core::events::generation_events::common::GenerationModel;
 use crate::core::events::generation_events::generation_enqueue_success_event::GenerationEnqueueSuccessEvent;
 use crate::core::providers::credentials::payload::provider_credential_payload::ProviderCredentialPayload;
 use crate::core::providers::credentials::provider_credential_key::ProviderCredentialKey;
@@ -59,13 +62,13 @@ pub async fn handle_venice_enqueue(request: &TauriGenerateImageRequest, app: &Ap
   let prepared = prepare_venice_request(request, app_env_configs).await?;
 
   let maybe_prompt_token = if use_library_upload {
-    create_prompt_record(request, prepared.tauri_model, prepared.plan.generation_mode(), app_env_configs, storyteller_creds_manager).await
+    create_prompt_record(request, prepared.maybe_common_model_type, prepared.plan.generation_mode(), app_env_configs, storyteller_creds_manager).await
   } else {
     info!("[Venice] No Storyteller credentials; results will be saved locally");
     None
   };
 
-  let success = TaskEnqueueSuccess { task_type: TaskType::ImageGeneration, model: Some(tauri_image_model_to_generation_model(prepared.tauri_model)), provider: GenerationProvider::Venice, provider_job_id: None, maybe_queue_status_url: None, maybe_queue_response_url: None, maybe_prompt_token: maybe_prompt_token.clone() };
+  let success = TaskEnqueueSuccess { task_type: TaskType::ImageGeneration, model: Some(prepared.generation_model.clone()), provider: GenerationProvider::Venice, provider_job_id: None, maybe_queue_status_url: None, maybe_queue_response_url: None, maybe_prompt_token: maybe_prompt_token.clone() };
 
   let task_id = success.insert_into_task_database_with_frontend_payload(task_database, request.frontend_caller, request.frontend_subscriber_id.as_deref(), request.frontend_subscriber_payload.as_deref()).await.map_err(|err| GenerateError::AnyhowError(anyhow!("Could not persist the Venice task: {:?}", err)))?;
 
@@ -186,14 +189,76 @@ pub(crate) fn load_venice_api_key(credential_cache: &ProviderCredentialLoadingCa
 }
 
 struct PreparedVeniceRequest {
-  tauri_model: TauriImageModel,
+  generation_model: GenerationModel,
+  maybe_common_model_type: Option<CommonModelType>,
   plan: VeniceImagePlan,
 }
 
-async fn prepare_venice_request(request: &TauriGenerateImageRequest, app_env_configs: &AppEnvConfigs) -> Result<PreparedVeniceRequest, GenerateError> {
-  let tauri_model = request.model.ok_or_else(GenerateError::no_model_specified)?;
+/// The model the request targets: either a compiled desktop model or a runtime
+/// provider-catalog id (Venice adds models between app releases).
+enum VeniceModelSource {
+  Static(TauriImageModel),
+  Dynamic(String),
+}
 
-  let spec = venice_model_spec(tauri_model).ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {:?} cannot use a Venice account.", tauri_model,))))?;
+fn resolve_model_source(request: &TauriGenerateImageRequest) -> Result<VeniceModelSource, GenerateError> {
+  match (&request.model_id, request.model) {
+    (Some(raw_model_id), _) => {
+      let parsed: TauriImageModel = serde_json::from_value(Value::String(raw_model_id.clone())).unwrap_or(TauriImageModel::Unknown);
+      match parsed {
+        TauriImageModel::Unknown => Ok(VeniceModelSource::Dynamic(raw_model_id.clone())),
+        known => Ok(VeniceModelSource::Static(known)),
+      }
+    },
+    (None, Some(known)) if known != TauriImageModel::Unknown => Ok(VeniceModelSource::Static(known)),
+    _ => Err(GenerateError::no_model_specified()),
+  }
+}
+
+/// Per-model knowledge used to build the request.
+struct VeniceModelContext {
+  generate_model: String,
+  edit_model: Option<&'static str>,
+  sizing: Option<VeniceSizingMode>,
+  supported_resolutions: Option<&'static [&'static str]>,
+  supports_quality: bool,
+  generation_model: GenerationModel,
+  maybe_common_model_type: Option<CommonModelType>,
+  is_dynamic: bool,
+}
+
+fn venice_model_context(source: VeniceModelSource) -> Result<VeniceModelContext, GenerateError> {
+  match source {
+    VeniceModelSource::Static(tauri_model) => {
+      let spec = venice_model_spec(tauri_model).ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {:?} cannot use a Venice account.", tauri_model))))?;
+      Ok(VeniceModelContext {
+        generate_model: spec.venice_model.to_string(),
+        edit_model: spec.edit_model,
+        sizing: Some(spec.sizing),
+        supported_resolutions: Some(spec.resolutions),
+        supports_quality: spec.supports_quality,
+        generation_model: tauri_image_model_to_generation_model(tauri_model),
+        maybe_common_model_type: tauri_image_model_to_common_model_type(tauri_model),
+        is_dynamic: false,
+      })
+    },
+    VeniceModelSource::Dynamic(id) => Ok(VeniceModelContext {
+      generate_model: id.clone(),
+      edit_model: None,
+      // Catalog models are treated as aspect-ratio + resolution models;
+      // Venice validates the values (pixel-only models error clearly).
+      sizing: None,
+      supported_resolutions: None,
+      supports_quality: false,
+      generation_model: GenerationModel::Unknown(id),
+      maybe_common_model_type: None,
+      is_dynamic: true,
+    }),
+  }
+}
+
+async fn prepare_venice_request(request: &TauriGenerateImageRequest, app_env_configs: &AppEnvConfigs) -> Result<PreparedVeniceRequest, GenerateError> {
+  let context = venice_model_context(resolve_model_source(request)?)?;
 
   reject_unsupported_inputs(request)?;
 
@@ -203,20 +268,29 @@ async fn prepare_venice_request(request: &TauriGenerateImageRequest, app_env_con
   }
 
   let aspect_ratio = request.aspect_ratio.map(map_aspect_ratio).map(str::to_owned);
-  let resolution = request.resolution.and_then(|value| resolve_supported_resolution(value, spec.resolutions));
-  let quality = if spec.supports_quality { request.quality.and_then(map_quality).map(str::to_owned) } else { None };
+  let resolution = request.resolution.and_then(|value| match context.supported_resolutions {
+    Some(supported) => resolve_supported_resolution(value, supported),
+    // Runtime models: pass the mapped tier through; Venice validates it.
+    None => map_resolution(value).map(str::to_owned),
+  });
+  let quality = if context.supports_quality { request.quality.and_then(map_quality).map(str::to_owned) } else { None };
 
   // Pixel-based models take width/height instead of aspect_ratio + resolution.
-  let (aspect_ratio, resolution, maybe_pixel_dimensions) = match spec.sizing {
-    VeniceSizingMode::Pixels { divisor } => (None, None, Some(pixel_dimensions(request.aspect_ratio, divisor))),
+  let (aspect_ratio, resolution, maybe_pixel_dimensions) = match context.sizing {
+    Some(VeniceSizingMode::Pixels { divisor }) => (None, None, Some(pixel_dimensions(request.aspect_ratio, divisor))),
     _ => (aspect_ratio, resolution, None),
   };
 
   let input_images = resolve_input_images(request, app_env_configs).await?;
 
+  // Runtime catalog models are text-to-image only for now.
+  if context.is_dynamic && !input_images.is_empty() {
+    return Err(GenerateError::BadInput(BadInputReason::WrongImageArguments("This model does not support editing on Venice yet; remove the reference images and try again.".to_string())));
+  }
+
   let plan = match input_images.len() {
     0 => {
-      let mut venice_request = VeniceGenerateImageRequest::new(spec.venice_model, prompt);
+      let mut venice_request = VeniceGenerateImageRequest::new(context.generate_model.clone(), prompt);
       venice_request.aspect_ratio = aspect_ratio;
       venice_request.resolution = resolution;
       venice_request.quality = quality;
@@ -228,7 +302,7 @@ async fn prepare_venice_request(request: &TauriGenerateImageRequest, app_env_con
       VeniceImagePlan::Generate(venice_request)
     },
     1 => {
-      let edit_model = spec.edit_model.ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {:?} does not support editing on Venice yet.", tauri_model))))?;
+      let edit_model = context.edit_model.ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {} does not support editing on Venice yet.", context.generate_model))))?;
       let mut venice_request = VeniceEditImageRequest::new(edit_model, prompt, input_images.into_iter().next().unwrap_or_default());
       venice_request.aspect_ratio = aspect_ratio;
       venice_request.resolution = resolution;
@@ -236,7 +310,7 @@ async fn prepare_venice_request(request: &TauriGenerateImageRequest, app_env_con
       VeniceImagePlan::Edit(venice_request)
     },
     2..=MAX_EDIT_INPUT_IMAGES => {
-      let edit_model = spec.edit_model.ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {:?} does not support editing on Venice yet.", tauri_model))))?;
+      let edit_model = context.edit_model.ok_or_else(|| GenerateError::BadInput(BadInputReason::WrongImageArguments(format!("Model {} does not support editing on Venice yet.", context.generate_model))))?;
       let mut venice_request = VeniceMultiEditImageRequest::new(edit_model, prompt, input_images);
       venice_request.aspect_ratio = aspect_ratio;
       venice_request.resolution = resolution;
@@ -248,7 +322,7 @@ async fn prepare_venice_request(request: &TauriGenerateImageRequest, app_env_con
     },
   };
 
-  Ok(PreparedVeniceRequest { tauri_model, plan })
+  Ok(PreparedVeniceRequest { generation_model: context.generation_model, maybe_common_model_type: context.maybe_common_model_type, plan })
 }
 
 /// Venice editing has no mask or angle inputs; reject them with a clear reason.
@@ -324,7 +398,12 @@ fn build_task_record(task_id: tokens::tokens::sqlite::tasks::TaskId, success: &T
 /// Create a prompt record in the Artcraft backend before generating, so the
 /// result is associated with its prompt in the user's library.
 /// Fails open: prompt tracking must never block generation.
-async fn create_prompt_record(request: &TauriGenerateImageRequest, tauri_model: TauriImageModel, generation_mode: CommonGenerationMode, app_env_configs: &AppEnvConfigs, storyteller_creds_manager: &StorytellerCredentialManager) -> Option<PromptToken> {
+async fn create_prompt_record(request: &TauriGenerateImageRequest, maybe_common_model_type: Option<CommonModelType>, generation_mode: CommonGenerationMode, app_env_configs: &AppEnvConfigs, storyteller_creds_manager: &StorytellerCredentialManager) -> Option<PromptToken> {
+  // Runtime catalog models have no legacy CommonModelType; skip tracking.
+  let Some(model_type) = maybe_common_model_type else {
+    return None;
+  };
+
   let creds = match storyteller_creds_manager.get_credentials() {
     Ok(Some(creds)) => creds,
     _ => {
@@ -333,7 +412,7 @@ async fn create_prompt_record(request: &TauriGenerateImageRequest, tauri_model: 
     },
   };
 
-  let prompt_request = CreatePromptRequest { uuid_idempotency_token: generate_random_uuid(), positive_prompt: request.prompt.clone(), negative_prompt: None, model_type: tauri_image_model_to_common_model_type(tauri_model), generation_provider: Some(GenerationProvider::Venice), maybe_generation_mode: Some(generation_mode), maybe_aspect_ratio: request.aspect_ratio, maybe_resolution: request.resolution, maybe_batch_count: request.batch_size.map(|n| n.min(255) as u8), maybe_generate_audio: None, maybe_duration_seconds: None };
+  let prompt_request = CreatePromptRequest { uuid_idempotency_token: generate_random_uuid(), positive_prompt: request.prompt.clone(), negative_prompt: None, model_type: Some(model_type), generation_provider: Some(GenerationProvider::Venice), maybe_generation_mode: Some(generation_mode), maybe_aspect_ratio: request.aspect_ratio, maybe_resolution: request.resolution, maybe_batch_count: request.batch_size.map(|n| n.min(255) as u8), maybe_generate_audio: None, maybe_duration_seconds: None };
 
   match create_prompt(&app_env_configs.storyteller_host, Some(&creds), prompt_request).await {
     Ok(response) => {

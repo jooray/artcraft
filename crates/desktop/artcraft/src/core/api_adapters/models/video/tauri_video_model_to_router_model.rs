@@ -30,6 +30,7 @@ pub fn tauri_video_model_to_router_model(model: TauriVideoModel) -> Option<Route
     TauriVideoModel::Veo3p1 => RouterVideoModel::Veo3p1,
     TauriVideoModel::Veo3p1Fast => RouterVideoModel::Veo3p1Fast,
     TauriVideoModel::Seedance2p5 | TauriVideoModel::Wan3p0 | TauriVideoModel::Wan3p0Prime | TauriVideoModel::ViduQ3 | TauriVideoModel::MinimaxH3 | TauriVideoModel::Flux3 => return None,
+    TauriVideoModel::Unknown => return None,
   };
 
   Some(router_model)

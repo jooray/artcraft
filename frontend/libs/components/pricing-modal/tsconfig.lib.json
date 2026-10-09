@@ -44,25 +44,19 @@
   ],
   "references": [
     {
-      "path": "../../tauri-api/tsconfig.lib.json"
+      "path": "../pricing-table/tsconfig.lib.json"
     },
     {
       "path": "../../state/subscription/tsconfig.lib.json"
     },
     {
-      "path": "../tab-selector/tsconfig.lib.json"
-    },
-    {
-      "path": "../pricing-table/tsconfig.lib.json"
+      "path": "../../tauri-api/tsconfig.lib.json"
     },
     {
       "path": "../button/tsconfig.lib.json"
     },
     {
       "path": "../select/tsconfig.lib.json"
-    },
-    {
-      "path": "../../icons/tsconfig.lib.json"
     },
     {
       "path": "../modal/tsconfig.lib.json"

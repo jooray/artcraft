@@ -48,5 +48,6 @@ pub fn tauri_image_model_to_router_model(model: TauriImageModel) -> Option<Route
     TauriImageModel::QwenImage3Pro => None,
     TauriImageModel::VeniceSd35 => None,
     TauriImageModel::ZImageTurbo => None,
+    TauriImageModel::Unknown => None,
   }
 }

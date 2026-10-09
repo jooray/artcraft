@@ -244,6 +244,8 @@ export const VIDEO_MODELS: VideoModel[] = [
     startFrame: true,
     endFrame: false,
     requiresImage: false,
+    supportsReferenceMode: true,
+    maxReferenceImages: 3,
     resolutionOptions: ["720p", "1080p"],
     sizeOptions: [
       {
@@ -423,6 +425,8 @@ export const VIDEO_MODELS: VideoModel[] = [
     startFrame: true,
     endFrame: true,
     requiresImage: false,
+    supportsReferenceMode: true,
+    maxReferenceImages: 3,
     sizeOptions: [
       {
         tauriValue: "wide_twenty_one_by_nine",

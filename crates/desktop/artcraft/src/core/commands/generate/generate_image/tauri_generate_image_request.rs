@@ -20,6 +20,11 @@ pub struct TauriGenerateImageRequest {
   /// The model to use.
   pub model: Option<TauriImageModel>,
 
+  /// The raw model id sent by the frontend. Carries runtime provider catalog
+  /// ids (Venice BYOK) that have no compiled `TauriImageModel` variant.
+  #[serde(default)]
+  pub model_id: Option<String>,
+
   /// Text prompt for the image generation.
   pub prompt: Option<String>,
 

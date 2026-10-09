@@ -45,5 +45,7 @@ pub fn tauri_image_model_to_generation_model(model: TauriImageModel) -> Generati
     TauriImageModel::QwenImage3Pro => GenerationModel::Unknown("qwen-image-3-pro".to_string()),
     TauriImageModel::VeniceSd35 => GenerationModel::Unknown("venice-sd35".to_string()),
     TauriImageModel::ZImageTurbo => GenerationModel::Unknown("z-image-turbo".to_string()),
+    // Runtime catalog ids; venice handlers carry the real id separately.
+    TauriImageModel::Unknown => GenerationModel::Unknown("unknown".to_string()),
   }
 }

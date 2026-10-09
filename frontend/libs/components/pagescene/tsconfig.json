@@ -3,7 +3,7 @@
   "include": [],
   "references": [
     {
-      "path": "../keybinds"
+      "path": "../viewer-3d"
     },
     {
       "path": "../tab-selector"
@@ -12,10 +12,10 @@
       "path": "../button-icon"
     },
     {
-      "path": "../loading-spinner"
+      "path": "../label"
     },
     {
-      "path": "../label"
+      "path": "../loading-spinner"
     },
     {
       "path": "../button-dropdown"
@@ -36,6 +36,9 @@
       "path": "../button"
     },
     {
+      "path": "../../icons"
+    },
+    {
       "path": "../modal"
     },
     {
@@ -43,6 +46,9 @@
     },
     {
       "path": "../promptbox"
+    },
+    {
+      "path": "../keybinds"
     },
     {
       "path": "../loading"
@@ -73,9 +79,6 @@
     },
     {
       "path": "../../common"
-    },
-    {
-      "path": "../../icons"
     },
     {
       "path": "./tsconfig.lib.json"

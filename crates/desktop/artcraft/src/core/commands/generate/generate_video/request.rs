@@ -13,97 +13,90 @@ use crate::core::commands::response::success_response_wrapper::SerializeMarker;
 ///
 /// MIGRATION (2026-07): we're moving the frontend to send storyteller-web omni
 /// identifiers (`CommonVideoModel` serde strings). Variants whose legacy Tauri
-/// id differs carry the omni id as a `#[serde(alias)]` so BOTH deserialize.
-/// Once the frontend is 100% omni ids, the legacy renames can be dropped.
-#[derive(Deserialize, Debug, Copy, Clone)]
-#[serde(rename_all = "snake_case")]
+/// id differs accept BOTH spellings (see `From<String>`).
+///
+/// Runtime provider catalogs (Venice BYOK) can send model ids this build does
+/// not know; those deserialize to [`TauriVideoModel::Unknown`], and the raw id
+/// travels in `TauriGenerateVideoRequest::model_id`.
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[serde(from = "String")]
 pub enum TauriVideoModel {
-  #[serde(rename = "grok_video", alias = "grok_imagine_video")]
   GrokVideo,
-
-  #[serde(rename = "grok_imagine_video_1p5")]
   GrokImagineVideo1p5,
-
-  #[serde(rename = "kling_1.6_pro", alias = "kling_1p6_pro")]
   Kling16Pro,
-
-  #[serde(rename = "kling_2.1_pro", alias = "kling_2p1_pro")]
   Kling21Pro,
-
-  #[serde(rename = "kling_2.1_master", alias = "kling_2p1_master")]
   Kling21Master,
-
-  #[serde(rename = "kling_2p5_turbo_pro")]
   Kling2p5TurboPro,
-
-  #[serde(rename = "kling_2p6_pro")]
   Kling2p6Pro,
-
-  #[serde(rename = "kling_3p0_standard")]
   Kling3p0Standard,
-
-  #[serde(rename = "kling_3p0_pro")]
   Kling3p0Pro,
-
-  #[serde(rename = "happy_horse_1p0")]
   HappyHorse1p0,
-
-  #[serde(rename = "seedance_1.0_lite", alias = "seedance_1p0_lite")]
   Seedance10Lite,
-
-  #[serde(rename = "seedance_1p5_pro")]
   Seedance1p5Pro,
-
-  #[serde(rename = "seedance_2p0")]
   Seedance2p0,
-
-  #[serde(rename = "seedance_2p0_fast")]
   Seedance2p0Fast,
-
-  #[serde(rename = "seedance_2p5")]
   Seedance2p5,
-
-  #[serde(rename = "wan_3p0")]
   Wan3p0,
-
-  #[serde(rename = "wan_3p0_prime")]
   Wan3p0Prime,
-
-  #[serde(rename = "vidu_q3")]
   ViduQ3,
-
-  #[serde(rename = "minimax_h3")]
   MinimaxH3,
-
-  #[serde(rename = "flux_3")]
   Flux3,
-
-  #[serde(rename = "sora_2")]
   Sora2,
-
-  #[serde(rename = "sora_2_pro")]
   Sora2Pro,
-
-  #[serde(rename = "veo_2")]
   Veo2,
-
-  #[serde(rename = "veo_3")]
   Veo3,
-
-  #[serde(rename = "veo_3_fast")]
   Veo3Fast,
-
-  #[serde(rename = "veo_3p1")]
   Veo3p1,
-
-  #[serde(rename = "veo_3p1_fast")]
   Veo3p1Fast,
+
+  /// An id from a runtime provider catalog (no compiled variant).
+  Unknown,
+}
+
+impl From<String> for TauriVideoModel {
+  fn from(value: String) -> Self {
+    match value.as_str() {
+      "grok_video" | "grok_imagine_video" => Self::GrokVideo,
+      "grok_imagine_video_1p5" => Self::GrokImagineVideo1p5,
+      "kling_1.6_pro" | "kling_1p6_pro" => Self::Kling16Pro,
+      "kling_2.1_pro" | "kling_2p1_pro" => Self::Kling21Pro,
+      "kling_2.1_master" | "kling_2p1_master" => Self::Kling21Master,
+      "kling_2p5_turbo_pro" => Self::Kling2p5TurboPro,
+      "kling_2p6_pro" => Self::Kling2p6Pro,
+      "kling_3p0_standard" => Self::Kling3p0Standard,
+      "kling_3p0_pro" => Self::Kling3p0Pro,
+      "happy_horse_1p0" => Self::HappyHorse1p0,
+      "seedance_1.0_lite" | "seedance_1p0_lite" => Self::Seedance10Lite,
+      "seedance_1p5_pro" => Self::Seedance1p5Pro,
+      "seedance_2p0" => Self::Seedance2p0,
+      "seedance_2p0_fast" => Self::Seedance2p0Fast,
+      "seedance_2p5" => Self::Seedance2p5,
+      "wan_3p0" => Self::Wan3p0,
+      "wan_3p0_prime" => Self::Wan3p0Prime,
+      "vidu_q3" => Self::ViduQ3,
+      "minimax_h3" => Self::MinimaxH3,
+      "flux_3" => Self::Flux3,
+      "sora_2" => Self::Sora2,
+      "sora_2_pro" => Self::Sora2Pro,
+      "veo_2" => Self::Veo2,
+      "veo_3" => Self::Veo3,
+      "veo_3_fast" => Self::Veo3Fast,
+      "veo_3p1" => Self::Veo3p1,
+      "veo_3p1_fast" => Self::Veo3p1Fast,
+      _ => Self::Unknown,
+    }
+  }
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct TauriGenerateVideoRequest {
   pub provider: Option<GenerationProvider>,
   pub model: Option<TauriVideoModel>,
+
+  /// The raw model id sent by the frontend. Carries runtime provider catalog
+  /// ids (Venice BYOK) that have no compiled `TauriVideoModel` variant.
+  #[serde(default)]
+  pub model_id: Option<String>,
 
   pub prompt: Option<String>,
   pub negative_prompt: Option<String>,

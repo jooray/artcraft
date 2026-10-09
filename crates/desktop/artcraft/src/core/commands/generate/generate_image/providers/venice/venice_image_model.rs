@@ -117,6 +117,48 @@ pub fn venice_supports_model_id(model_id: &str) -> bool {
   )
 }
 
+/// Venice image model ids this build already maps (generate + edit variants).
+/// The runtime catalog only surfaces ids OUTSIDE this list.
+pub const VENICE_STATIC_IMAGE_MODEL_IDS: &[&str] = &[
+  "nano-banana-2",
+  "nano-banana-2-edit",
+  "nano-banana-pro",
+  "nano-banana-pro-edit",
+  "gpt-image-1-5",
+  "gpt-image-1-5-edit",
+  "gpt-image-2",
+  "gpt-image-2-edit",
+  "gpt-image-2-5-flare",
+  "gpt-image-2-5-flare-edit",
+  "gpt-image-2-5-sunburst",
+  "gpt-image-2-5-sunburst-edit",
+  "seedream-v4",
+  "seedream-v4-edit",
+  "seedream-v5-lite",
+  "seedream-v5-lite-edit",
+  "flux-2-pro",
+  "flux-2-max",
+  "flux-2-max-edit",
+  "flux-3-image",
+  "flux-3-image-edit",
+  "krea-2-turbo",
+  "ideogram-v4-5",
+  "ideogram-v4-5-edit",
+  "recraft-v4",
+  "luma-uni-1-max",
+  "luma-uni-1-max-edit",
+  "muse-image",
+  "muse-image-edit",
+  "nano-banana-2-1",
+  "nano-banana-2-1-edit",
+  "seedream-v5-pro",
+  "seedream-v5-pro-edit",
+  "qwen-image-3-pro",
+  "qwen-image-3-pro-edit",
+  "venice-sd35",
+  "z-image-turbo",
+];
+
 // ── Parameter mapping ──
 
 /// Map the desktop aspect ratio to Venice's `aspect_ratio` string.
@@ -304,6 +346,47 @@ mod tests {
         let parsed: TauriImageModel = serde_json::from_str(&format!("\"{}\"", id)).unwrap();
         assert!(venice_model_spec(parsed).is_some(), "{} should have a spec", id);
       }
+    }
+
+    #[test]
+    fn static_id_list_matches_the_spec_table() {
+      let variants = [
+        TauriImageModel::NanoBanana2,
+        TauriImageModel::NanoBananaPro,
+        TauriImageModel::GptImage1p5,
+        TauriImageModel::GptImage2,
+        TauriImageModel::GptImage2p5Flare,
+        TauriImageModel::GptImage2p5Sunburst,
+        TauriImageModel::Seedream4,
+        TauriImageModel::Seedream5Lite,
+        TauriImageModel::Flux2Pro,
+        TauriImageModel::Flux2Max,
+        TauriImageModel::Flux3Image,
+        TauriImageModel::Krea2Turbo,
+        TauriImageModel::Ideogram4p5,
+        TauriImageModel::Recraft4,
+        TauriImageModel::LumaUni1Max,
+        TauriImageModel::MuseImage,
+        TauriImageModel::NanoBanana2p1,
+        TauriImageModel::Seedream5Pro,
+        TauriImageModel::QwenImage3Pro,
+        TauriImageModel::VeniceSd35,
+        TauriImageModel::ZImageTurbo,
+      ];
+
+      let mut expected: Vec<&str> = Vec::new();
+      for variant in variants {
+        let spec = venice_model_spec(variant).expect("variant should have a spec");
+        expected.push(spec.venice_model);
+        if let Some(model) = spec.edit_model {
+          expected.push(model);
+        }
+      }
+      expected.sort_unstable();
+
+      let mut listed = VENICE_STATIC_IMAGE_MODEL_IDS.to_vec();
+      listed.sort_unstable();
+      assert_eq!(listed, expected);
     }
 
     #[test]

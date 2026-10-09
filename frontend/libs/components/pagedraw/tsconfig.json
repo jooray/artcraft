@@ -3,7 +3,13 @@
   "include": [],
   "references": [
     {
+      "path": "../../icons"
+    },
+    {
       "path": "../slider-v2"
+    },
+    {
+      "path": "../viewer-3d"
     },
     {
       "path": "../../api"
@@ -37,9 +43,6 @@
     },
     {
       "path": "../tooltip"
-    },
-    {
-      "path": "../../icons"
     },
     {
       "path": "../button"

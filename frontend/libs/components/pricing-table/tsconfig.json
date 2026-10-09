@@ -3,16 +3,13 @@
   "include": [],
   "references": [
     {
-      "path": "../../state/subscription"
-    },
-    {
       "path": "../tab-selector"
     },
     {
       "path": "../button"
     },
     {
-      "path": "../../icons"
+      "path": "../../state/subscription"
     },
     {
       "path": "./tsconfig.lib.json"
