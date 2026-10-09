@@ -52,6 +52,9 @@ export default defineConfig({
   },
   build: {
     outDir: path.resolve(projectRoot, "dist"),
+    // The outDir lives outside the vite root; without this every build leaves
+    // its hashed bundles behind, and the Tauri bundle embeds the whole dist.
+    emptyOutDir: true,
     rollupOptions: {
       input: {
         index: resolve(projectRoot, "app/index.html"),
