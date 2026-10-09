@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useShowProviderLoginModalEvent } from "@storyteller/tauri-events";
 import { GenerationProvider } from "@storyteller/common";
 import { ProviderCredentialKey, ProviderSetApiKey } from "@storyteller/tauri-api";
+import { notifyProviderCredentialsChanged } from "@storyteller/ui-model-selector";
 
 interface ProviderSetupModalProps {
 }
@@ -61,6 +62,7 @@ export function ProviderSetupModal({
         await ProviderSetApiKey(ProviderCredentialKey.VeniceApiKey, trimmedKey);
         setVeniceApiKey("");
         setShowModal(false);
+        notifyProviderCredentialsChanged();
       } catch (e) {
         console.error("Error saving the Venice.ai API key", e);
       } finally {

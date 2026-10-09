@@ -9,6 +9,7 @@ import { LoginSuccess } from "./LoginSuccess";
 import { ArtCraftSignUp } from "./artcraft-signup";
 import { getNativeLoginSession, passwordLogin, passwordSignup, isDesktopLoginError } from "./NativeLoginBridge";
 import { useLoginModalStore } from "./useLoginModalStore";
+import { notifyProviderCredentialsChanged } from "@storyteller/ui-model-selector";
 
 // Webapp auth-showcase video (swap by passing `videoUrl`).
 const DEFAULT_SHOWCASE_VIDEO =
@@ -139,6 +140,8 @@ export function LoginModal({
     setIsChallengeActive(false);
     setLoggedInUsername(user.username);
     authSuccess.current?.(user);
+    // The model pickers re-check which providers are configured.
+    notifyProviderCredentialsChanged();
   };
 
   const handleAuthSubmit = async (

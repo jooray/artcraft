@@ -6,6 +6,7 @@ import { UsersApi } from "@storyteller/api";
 import { UserInfo } from "@storyteller/api";
 import { useLoginModalStore } from "@storyteller/ui-login-modal";
 import { invoke } from "@tauri-apps/api/core";
+import { notifyProviderCredentialsChanged } from "@storyteller/ui-model-selector";
 
 const usersApi = new UsersApi();
 
@@ -57,6 +58,9 @@ export const ArtcraftAccountBlock = ({
       triggerRecheck(); // Trigger modal to recheck session and potentially open
 
       await invoke("storyteller_purge_credentials_command");
+
+      // The model pickers re-check which providers are configured.
+      notifyProviderCredentialsChanged();
 
     } else {
       triggerRecheck(); // Open login modal instead of redirecting

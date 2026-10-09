@@ -8,10 +8,11 @@ import {
   useClassyModelSelectorStore,
   useSelectedProviderForModel,
 } from "./classy-model-selector-store";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { ModelPage } from "./model-pages";
 import { Provider } from "@storyteller/tauri-api";
 import { getProviderDisplayName, getProviderIcon } from "./provider-icons";
+import { useConfiguredProviders } from "./useConfiguredProviders";
 import {
   Model,
   getCreatorIcon,
@@ -141,7 +142,32 @@ export function ClassyModelSelector({
 }: ClassyModelSelectorProps) {
   const { selectedModels, setSelectedModel, setSelectedProvider } =
     useClassyModelSelectorStore();
-  const itemModels: Model[] = items
+
+  // Only show models that have at least one CONFIGURED provider, and only
+  // configured provider options within a model. When nothing is configured at
+  // all (fresh install), keep the full catalog so setup remains discoverable.
+  const configuredProviders = useConfiguredProviders();
+  const filterConfiguredProviders = useCallback(
+    (providers: GenerationProvider[]): GenerationProvider[] => {
+      if (!configuredProviders || configuredProviders.size === 0) {
+        return providers;
+      }
+      return providers.filter((provider) => configuredProviders.has(provider));
+    },
+    [configuredProviders],
+  );
+
+  const visibleItems = useMemo(
+    () =>
+      items.filter((item) => {
+        if (!item.model) return true;
+        const allowed = item.model.getProviders() || DEFAULT_PROVIDER_OPTIONS;
+        return filterConfiguredProviders(allowed).length > 0;
+      }),
+    [items, filterConfiguredProviders],
+  );
+
+  const itemModels: Model[] = visibleItems
     .map((item) => item.model)
     .filter((model) => model !== undefined);
   const selectedModel =
@@ -154,9 +180,10 @@ export function ClassyModelSelector({
   // For the first mount, make sure the selected model is set for other components to listen
   useEffect(() => {
     // Initialize selected model if not set
-    if (!selectedModels[page] && items[0]) {
+    if (!selectedModels[page] && visibleItems[0]) {
       setSelectedModel(page, defaultModelForPage(itemModels, page));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // The backend listing hydrates asynchronously and rebuilds the model
@@ -173,19 +200,35 @@ export function ClassyModelSelector({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, selectedModels, page]);
 
+  // If filtering hides the selected model (e.g. logged out), fall back to the
+  // first visible model so generation never targets a hidden provider.
+  useEffect(() => {
+    const selected = selectedModels[page];
+    if (!selected) return;
+    const stillVisible = itemModels.some(
+      (model) => model.tauriId === selected.tauriId,
+    );
+    if (!stillVisible && itemModels[0]) {
+      setSelectedModel(page, itemModels[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configuredProviders, itemModels, selectedModels, page]);
+
   // Initialize defaults and replace providers removed from the catalog.
   useEffect(() => {
-    for (const item of items) {
+    for (const item of visibleItems) {
       const modelId = item.model?.id;
       if (!modelId) continue;
-      const allowed = item.model?.getProviders() || DEFAULT_PROVIDER_OPTIONS;
+      const allowed = filterConfiguredProviders(
+        item.model?.getProviders() || DEFAULT_PROVIDER_OPTIONS,
+      );
       if (allowed.includes(selectedProvidersByModel[modelId])) continue;
       if (allowed.length > 0) {
         setSelectedProvider(page, modelId, allowed[0]);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, providersByModel, page, selectedProvidersByModel]);
+  }, [items, configuredProviders, providersByModel, page, selectedProvidersByModel]);
 
   const handleModelSelect = (item: PopoverItem) => {
     console.log(`Model selector changed on page "${page}": `, item.model);
@@ -194,10 +237,11 @@ export function ClassyModelSelector({
 
   const modelList = useMemo(
     () =>
-      items.map((item) => {
+      visibleItems.map((item) => {
         const modelId = item.model?.id;
-        const allowedProviders =
-          item.model?.getProviders() || DEFAULT_PROVIDER_OPTIONS;
+        const allowedProviders = filterConfiguredProviders(
+          item.model?.getProviders() || DEFAULT_PROVIDER_OPTIONS,
+        );
 
         // When provider selection is hidden, treat every model as
         // single-provider so the submenu and provider chips never render.
@@ -250,7 +294,8 @@ export function ClassyModelSelector({
         } as PopoverItem;
       }),
     [
-      items,
+      visibleItems,
+      filterConfiguredProviders,
       selectedModel,
       selectedProvider,
       selectedProvidersByModel,

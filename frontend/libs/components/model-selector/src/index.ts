@@ -5,3 +5,4 @@ export * from "./lib/classy-model-selector-store";
 export * from "./lib/defaultModelForPage";
 export * from "./lib/provider-selector";
 export * from "./lib/provider-icons";
+export * from "./lib/useConfiguredProviders";

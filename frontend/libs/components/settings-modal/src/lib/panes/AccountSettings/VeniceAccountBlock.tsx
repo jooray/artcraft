@@ -8,6 +8,7 @@ import {
   ProviderList,
   ProviderSetApiKey,
 } from "@storyteller/tauri-api";
+import { notifyProviderCredentialsChanged } from "@storyteller/ui-model-selector";
 
 /// API key management for the Venice.ai BYOK provider.
 export const VeniceAccountBlock = () => {
@@ -46,6 +47,7 @@ export const VeniceAccountBlock = () => {
       await ProviderSetApiKey(ProviderCredentialKey.VeniceApiKey, trimmedKey);
       setDraftKey("");
       await fetchCredentials();
+      notifyProviderCredentialsChanged();
     } catch (e) {
       console.error("Error saving the Venice.ai API key", e);
     } finally {
@@ -57,6 +59,7 @@ export const VeniceAccountBlock = () => {
     try {
       await ProviderClear(ProviderCredentialKey.VeniceApiKey);
       await fetchCredentials();
+      notifyProviderCredentialsChanged();
     } catch (e) {
       console.error("Error clearing the Venice.ai API key", e);
     }
