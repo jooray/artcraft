@@ -1,3 +1,38 @@
+> # 🛶 Venice fork
+>
+> **This fork runs ArtCraft against [Venice.ai](https://venice.ai) instead of the hosted ArtCraft service.**
+> It is a standalone version that does not need an ArtCraft account, subscription, or
+> ArtCraft keys — you bring your own **Venice.ai API key**, and images, image edits, video,
+> and music run directly against the Venice API from your machine.
+>
+> **macOS build (Apple Silicon):** download the DMG from this fork's
+> [Releases](../../releases). The app is not notarized — the first time, open it with
+> right-click → Open, or run `xattr -dr com.apple.quarantine /Applications/ArtCraft.app`.
+>
+> ## What's changed in this fork
+>
+> **Venice.ai BYOK provider — no account required**
+> - **Images**: Nano Banana 2.1, Seedream V5 Pro/Lite, Flux 2/3, Qwen Image 3, Krea, Ideogram, Recraft, Luma, Muse, and more — plus **image editing** (1–3 reference images) on the models that support it.
+> - **Video**: Wan 3.0 / Prime / Pro, Seedance 2.x (reference-to-video with video + audio refs), Kling, Veo 3.x, Vidu Q3, MiniMax H3, Flux 3 (first/last frame), HappyHorse, Seedance 2.0 Fast, LTX-2, PixVerse, Runway, Longcat, and more as Venice ships them.
+> - **Music & sound**: MiniMax Music 2.6 / 2.5 / 2.0 (**type your own lyrics**, or leave empty to have them written from your description), ACE-Step, ElevenLabs Music and sound effects.
+> - **Live model catalog**: the app pulls Venice's model list on startup, every 6 hours, and whenever the key changes — new Venice models appear without an app update, and cost estimates work for them.
+> - **Real cost estimates in USD** (image price list, `/video/quote`, `/audio/quote`) shown before you generate.
+>
+> **Standalone / local-first (no login)**
+> - Works fully logged out: generations are saved to your downloads folder (`~/Artcraft/downloads` by default) and the library is local-first — a local task database merged into every gallery, surviving restarts.
+> - Logging in to ArtCraft is optional; it only adds uploading results to your ArtCraft library.
+> - No forced login: the dialog is dismissible and never opens on its own.
+>
+> **Only usable models in the pickers**
+> - Models whose provider is not configured are hidden — a Venice-key-only install shows Venice models only.
+> - Picker groups use the real model families (Nano Banana, Seedance, Kling, MiniMax, ElevenLabs, …) for Venice ids too.
+>
+> Build from source: [`script/artcraft/unix_build.sh`](./script/artcraft/unix_build.sh) (macOS).
+>
+> ---
+>
+> The upstream ArtCraft README follows below.
+
 <h1 align="center">ArtCraft</h1>
 <p align="center"><strong>The IDE for artists.</strong></p>
 
